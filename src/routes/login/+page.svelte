@@ -1,6 +1,5 @@
 <!-- src/routes/login/+page.svelte -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { auth, signIn } from '#lib/features/auth/auth.svelte.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import AuthShell from '#lib/ui/AuthShell.svelte';
@@ -46,7 +45,6 @@
 
 		try {
 			await signIn(normalizedEmail, password);
-			await goto('/home');
 		} catch (error) {
 			errorMessage = authErrorMessage(error);
 		} finally {

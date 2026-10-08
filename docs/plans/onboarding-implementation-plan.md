@@ -99,14 +99,14 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 ## 6. Navegação e proteção
 
-- [ ] Expandir a regra centralizada para considerar autenticação, resolução da Account e `onboarding_completed`.
-- [ ] Aplicar a matriz:
+- [x] Expandir a regra centralizada para considerar autenticação, resolução da Account e `onboarding_completed`.
+- [x] Aplicar a matriz:
   - Sem sessão: `/home` e `/onboarding` redirecionam para `/login`.
   - Com sessão e Account incompleta: `/`, `/login`, `/register` e `/home` redirecionam para `/onboarding`.
   - Com sessão e Account completa: `/`, `/login`, `/register` e `/onboarding` redirecionam para `/home`.
-- [ ] Não decidir o destino enquanto a Account estiver em `idle` ou `loading`.
-- [ ] Em falha ao resolver a Account, exibir um estado recuperável com **Tentar novamente**, sem redirecionamento em ciclo.
-- [ ] Preservar `replaceState` nos redirecionamentos automáticos.
+- [x] Não decidir o destino enquanto a Account estiver em `idle` ou `loading`.
+- [x] Em falha ao resolver a Account, exibir um estado recuperável com **Tentar novamente**, sem redirecionamento em ciclo.
+- [x] Preservar `replaceState` nos redirecionamentos automáticos.
 
 ---
 
@@ -126,7 +126,7 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 - [ ] Verificar contraste, foco visível e legibilidade dos componentes nos dois temas.
 - [x] Testar `PATCH /me`: payload normalizado, sucesso, 400/403/409/422/500, falha de rede e resposta obsoleta.
 - [x] Testar validações de nome, nascimento futuro, CPF e telefone.
-- [ ] Cobrir a matriz de rotas para usuário anônimo, Account incompleta, Account completa, carregamento e erro.
+- [x] Cobrir a matriz de rotas para usuário anônimo, Account incompleta, Account completa, carregamento e erro.
 - [ ] Testar que cadastro com sessão imediata direciona ao onboarding quando a Account nasce incompleta.
 - [ ] Testar que login após confirmação de e-mail também direciona ao onboarding.
 - [ ] Testar retomada e conclusão do onboarding, atualização do estado e redirecionamento para a Home.

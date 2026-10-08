@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
 	signUp: vi.fn(),
+	signInWithPassword: vi.fn(),
 	loadAccount: vi.fn(),
 	clearAccount: vi.fn()
 }));
@@ -11,7 +12,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./supabaseClient', () => ({
 	supabase: {
 		auth: {
-			signUp: mocks.signUp
+			signUp: mocks.signUp,
+			signInWithPassword: mocks.signInWithPassword
 		}
 	}
 }));
@@ -23,7 +25,7 @@ vi.mock('#lib/features/account/account.svelte.js', () => ({
 	}
 }));
 
-import { destroyAuth, signUp } from './auth.svelte';
+import { auth, destroyAuth, signIn, signUp } from './auth.svelte';
 
 const user = { id: '0199c265-34b1-7000-8000-000000000010' } as User;
 const session = { access_token: 'access-token', user } as Session;
@@ -31,8 +33,21 @@ const session = { access_token: 'access-token', user } as Session;
 beforeEach(() => {
 	destroyAuth();
 	mocks.signUp.mockReset();
+	mocks.signInWithPassword.mockReset();
 	mocks.loadAccount.mockReset();
 	mocks.clearAccount.mockReset();
+});
+
+describe('signIn', () => {
+	it('loads the account after a confirmed login session', async () => {
+		mocks.signInWithPassword.mockResolvedValue({ data: { user, session }, error: null });
+		mocks.loadAccount.mockResolvedValue(undefined);
+
+		await signIn('person@example.com', 'password');
+
+		expect(mocks.loadAccount).toHaveBeenCalledWith('access-token');
+		expect(auth.session).toBe(session);
+	});
 });
 
 describe('signUp', () => {

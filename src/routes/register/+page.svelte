@@ -1,6 +1,5 @@
 <!-- src/routes/register/+page.svelte -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { signUp } from '#lib/features/auth/auth.svelte.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import AuthShell from '#lib/ui/AuthShell.svelte';
@@ -68,7 +67,6 @@
 			const data = await signUp(normalizedEmail, password);
 
 			if (data.session) {
-				await goto('/home');
 				return;
 			}
 
