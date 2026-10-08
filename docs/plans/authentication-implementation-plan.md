@@ -1,10 +1,10 @@
-<!-- todo.md -->
+<!-- docs/plans/authentication-implementation-plan.md -->
 
 # Plano de Implementação: Autenticação com Supabase no Sonnda Svelte
 
 ## 1. Resumo e Objetivo
 
-Implementar o fluxo de autenticação na aplicação `sonnda-svelte` utilizando o SDK oficial do Supabase (`@supabase/supabase-js`) e resolver a conta de domínio do Sonnda pela API. O fluxo contempla login com e-mail e senha, carregamento da conta atual, redirecionamento para uma página Home protegida e opção de logout.
+Implementar o fluxo de autenticação na aplicação `sonnda-svelte` utilizando o SDK oficial do Supabase (`@supabase/supabase-js`) e resolver a conta de domínio do Sonnda pela API. O fluxo contempla cadastro e login com e-mail e senha, carregamento da conta atual, redirecionamento para uma página Home protegida e opção de logout.
 
 ---
 
@@ -34,6 +34,8 @@ sonnda-svelte/
 │       ├── +page.svelte                # Redirecionamento da raiz (-> /home ou /login)
 │       ├── login/
 │       │   └── +page.svelte            # Tela de login (email e senha)
+│       ├── register/
+│       │   └── +page.svelte            # Tela de cadastro (email e senha)
 │       └── home/
 │           └── +page.svelte            # Tela protegida com boas-vindas e botão de logout
 ```
@@ -73,25 +75,43 @@ sonnda-svelte/
   - Chamada à autenticação via Supabase SDK.
   - Redirecionamento para `/home` após login bem-sucedido via `goto('/home')`.
 
-### Etapa 4: Página Home com Boas-Vindas (`/home`)
+### Etapa 4: Cadastro de Usuário (`/register`)
+
+- [ ] Adicionar `signUp(email, password)` em `src/lib/auth.svelte.ts` usando `supabase.auth.signUp`.
+- [ ] Criar a rota `src/routes/register/+page.svelte`:
+  - Formulário com campos de e-mail, senha e confirmação de senha.
+  - Validação de campos obrigatórios, formato do e-mail, senha mínima e confirmação correspondente.
+  - Indicador de carregamento durante o envio e mensagens seguras baseadas nos códigos de erro do Supabase.
+  - Link de retorno para `/login` e link de acesso ao cadastro na tela de login.
+- [ ] Tratar os resultados possíveis do Supabase:
+  - Com confirmação de e-mail habilitada, informar que o usuário deve confirmar o endereço antes de entrar.
+  - Com sessão criada imediatamente, carregar/provisionar a `Account` por `GET /me` e redirecionar para `/home`.
+- [ ] Não criar a `Account` diretamente pelo frontend; manter o provisionamento na API após a primeira sessão autenticada.
+
+### Etapa 5: Página Home com Boas-Vindas (`/home`)
 
 - [x] Criar a rota `src/routes/home/+page.svelte`:
   - Mensagem de recepção usando `account.profile.full_name`, com `user.email` como fallback.
   - Exibição de detalhes da conta caso disponíveis (ex.: ID ou data de criação).
   - Botão de ação para **Sair (Logout)** que executa `signOut()` e redireciona para `/login`.
 
-### Etapa 5: Proteção de Rotas e Redirecionamentos
+### Etapa 6: Proteção de Rotas e Redirecionamentos
 
 - [ ] Configurar controle de acesso nas rotas:
-  - Redirecionar usuários **não autenticados** de `/home` para `/login`.
-  - Redirecionar usuários **já autenticados** de `/login` para `/home`.
-  - Na rota raiz `/`, redirecionar automaticamente para `/home` (se logado) ou `/login` (se deslogado).
+  - [x] Redirecionar usuários **não autenticados** de `/home` para `/login`.
+  - [x] Redirecionar usuários **já autenticados** de `/login` para `/home`.
+  - [ ] Redirecionar usuários **já autenticados** de `/register` para `/home`.
+  - [x] Na rota raiz `/`, redirecionar automaticamente para `/home` (se logado) ou `/login` (se deslogado).
 
 ---
 
 ## 5. Validação e Testes
 
 - [x] Iniciar o servidor local com `bun run dev`.
+- [ ] Testar cadastro com campos vazios, e-mail inválido, senha fraca e confirmação diferente.
+- [ ] Testar cadastro com e-mail já registrado.
+- [ ] Testar cadastro bem-sucedido com confirmação de e-mail habilitada e desabilitada.
+- [ ] Confirmar que a `Account` é provisionada pela API somente após existir uma sessão autenticada.
 - [ ] Testar tentativa de login com credenciais incorretas (validação de mensagem de erro).
 - [ ] Testar login bem-sucedido e conferir redirecionamento para `/home`.
 - [ ] Validar exibição do e-mail na página Home.
