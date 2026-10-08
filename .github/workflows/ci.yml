@@ -18,3 +18,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps firefox
       - run: bun run validate
+# .github/workflows/ci.yml
+env:
+  PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+  PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
