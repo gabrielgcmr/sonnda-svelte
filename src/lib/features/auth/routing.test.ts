@@ -1,3 +1,4 @@
+// src/lib/features/auth/routing.test.ts
 import { describe, expect, it } from 'vitest';
 import { authRedirect, isAuthManagedRoute, type RouteAccountState } from './routing';
 
@@ -19,16 +20,25 @@ describe('authRedirect', () => {
 		['/login', anonymous, null],
 		['/register', anonymous, null],
 		['/home', anonymous, '/login'],
+		['/home/exams', anonymous, '/login'],
+		['/home/calculators', anonymous, '/login'],
+		['/patients/patient-id', anonymous, '/login'],
 		['/onboarding', anonymous, '/login'],
 		['/', incomplete, '/onboarding'],
 		['/login', incomplete, '/onboarding'],
 		['/register', incomplete, '/onboarding'],
 		['/home', incomplete, '/onboarding'],
+		['/home/exams', incomplete, '/onboarding'],
+		['/home/calculators', incomplete, '/onboarding'],
+		['/patients/patient-id', incomplete, '/onboarding'],
 		['/onboarding', incomplete, null],
 		['/', complete, '/home'],
 		['/login', complete, '/home'],
 		['/register', complete, '/home'],
 		['/home', complete, null],
+		['/home/exams', complete, null],
+		['/home/calculators', complete, null],
+		['/patients/patient-id', complete, null],
 		['/onboarding', complete, '/home']
 	] as const)('resolves %s for account state %#', (path, state, expected) => {
 		expect(authRedirect(path, state)).toBe(expected);
@@ -60,6 +70,9 @@ describe('isAuthManagedRoute', () => {
 		'/register/',
 		'/home',
 		'/home/',
+		'/home/exams',
+		'/home/calculators/',
+		'/patients/patient-id',
 		'/onboarding',
 		'/onboarding/'
 	])('includes %s', (path) => {
@@ -68,5 +81,7 @@ describe('isAuthManagedRoute', () => {
 
 	it('excludes unrelated routes', () => {
 		expect(isAuthManagedRoute('/health')).toBe(false);
+		expect(isAuthManagedRoute('/homeopathy')).toBe(false);
+		expect(isAuthManagedRoute('/patients-archive')).toBe(false);
 	});
 });
