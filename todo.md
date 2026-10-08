@@ -45,11 +45,13 @@ sonnda-svelte/
 ### Etapa 1: Configuração do Ambiente (.env)
 
 - [x] Criar o arquivo `.env` na raiz de `sonnda-svelte` baseado no `.env.example`:
+
   ```env
   PUBLIC_API_URL=http://localhost:8080
   PUBLIC_SUPABASE_URL=https://<seu-projeto>.supabase.co
   PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
   ```
+
 - [x] Validar importação em `src/lib/supabaseClient.ts` garantindo que o cliente é instanciado sem erros.
 
 ### Etapa 2: Gerenciamento do Estado da Sessão (Runes Svelte 5)
@@ -73,7 +75,7 @@ sonnda-svelte/
 
 ### Etapa 4: Página Home com Boas-Vindas (`/home`)
 
-- [ ] Criar a rota `src/routes/home/+page.svelte`:
+- [x] Criar a rota `src/routes/home/+page.svelte`:
   - Mensagem de recepção usando `account.profile.full_name`, com `user.email` como fallback.
   - Exibição de detalhes da conta caso disponíveis (ex.: ID ou data de criação).
   - Botão de ação para **Sair (Logout)** que executa `signOut()` e redireciona para `/login`.
