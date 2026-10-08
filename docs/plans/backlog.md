@@ -30,11 +30,6 @@ Funcionalidades que dependem de uma decisão arquitetural futura.
 
 ## Itens
 
-### P1 — Regularizar a formatação do repositório
-
-- **Justificativa:** `bun run lint` falha na verificação global do Prettier em 42 arquivos fora da etapa 6: 41 têm apenas CRLF em vez de LF, e `Taskfile.yml` também usa aspas duplas onde a configuração pede aspas simples. O Git está com `core.autocrlf=true`, sem regra de fim de linha no repositório; isso impede o uso confiável do lint completo como verificação de CI.
-- **Condições para implementação:** definir e aplicar uma política de fim de linha coerente com o Prettier e o Git, ajustar a aspas no `Taskfile.yml` em alteração separada e executar `bun run lint`, testes e build.
-
 ### P3 — Migrar a autenticação para sessão SSR com cookies
 
 - **Justificativa:** a proteção atual de `/`, `/login` e `/home` ocorre no navegador após a hidratação. A API continua protegida pela validação do Bearer token, portanto não há vulnerabilidade conhecida, mas o SSR permitiria decidir redirecionamentos no servidor e evitar depender do estado de autenticação client-side.

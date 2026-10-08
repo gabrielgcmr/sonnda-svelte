@@ -32,9 +32,9 @@
 		aria-label={`Tema: ${labels[theme.preference]}`}
 		class="cursor-pointer bg-transparent text-sm font-medium text-on-surface outline-none"
 	>
-		<option value="system">Sistema</option>
-		<option value="light">Claro</option>
-		<option value="dark">Escuro</option>
+		<option value="system" class="bg-surface text-on-surface">Sistema</option>
+		<option value="light" class="bg-surface text-on-surface">Claro</option>
+		<option value="dark" class="bg-surface text-on-surface">Escuro</option>
 	</select>
 	<span class="sr-only" aria-live="polite">Tema ativo: {labels[theme.resolved]}</span>
 </label>

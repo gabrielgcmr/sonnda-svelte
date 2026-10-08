@@ -122,16 +122,16 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 ## 8. Testes e critérios de aceite
 
-- [ ] Testar seleção inicial, persistência, alternância e ausência de flash dos temas claro e escuro.
-- [ ] Verificar contraste, foco visível e legibilidade dos componentes nos dois temas.
+- [x] Testar seleção inicial, persistência, alternância e ausência de flash dos temas claro e escuro.
+- [x] Verificar contraste, foco visível e legibilidade dos componentes nos dois temas.
 - [x] Testar `PATCH /me`: payload normalizado, sucesso, 400/403/409/422/500, falha de rede e resposta obsoleta.
 - [x] Testar validações de nome, nascimento futuro, CPF e telefone.
 - [x] Cobrir a matriz de rotas para usuário anônimo, Account incompleta, Account completa, carregamento e erro.
-- [ ] Testar que cadastro com sessão imediata direciona ao onboarding quando a Account nasce incompleta.
-- [ ] Testar que login após confirmação de e-mail também direciona ao onboarding.
-- [ ] Testar retomada e conclusão do onboarding, atualização do estado e redirecionamento para a Home.
+- [x] Testar que cadastro com sessão imediata direciona ao onboarding quando a Account nasce incompleta.
+- [x] Testar que login após confirmação de e-mail também direciona ao onboarding.
+- [x] Testar retomada e conclusão do onboarding, atualização do estado e redirecionamento para a Home.
 - [x] Executar `svelte-check`, testes unitários, ESLint e build.
-- [ ] Fazer regressão manual de Login, Cadastro, Home, Logout e alternância de tema em viewport móvel e desktop.
+- [x] Fazer regressão manual de Login, Cadastro, Home, Logout e alternância de tema em viewport móvel e desktop.
 
 ---
 
