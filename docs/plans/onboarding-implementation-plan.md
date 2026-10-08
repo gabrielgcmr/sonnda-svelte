@@ -66,17 +66,17 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 ## 4. Estado da Account
 
-- [ ] Evoluir o estado da conta para expor:
+- [x] Evoluir o estado da conta para expor:
   - `status`: `idle | loading | ready | error`.
   - `account`: conta resolvida ou `null`.
   - `problem`: Problem Details seguro ou `null`.
   - `saving`: estado independente de atualização do perfil.
   - `load(accessToken)`, `updateProfile(accessToken, input)` e `clear()`.
-- [ ] Implementar `GET /me` e `PATCH /me` no módulo `accountApi.ts`, enviando `Authorization: Bearer <access_token>`.
-- [ ] Em atualização bem-sucedida, substituir a `Account` local pela resposta da API.
-- [ ] Em falha de atualização, preservar a conta anterior e disponibilizar o Problem Details para a interface.
-- [ ] Normalizar falhas de rede para uma mensagem segura, sem exibir exceções internas.
-- [ ] Continuar invalidando respostas antigas quando logout, troca de sessão ou uma requisição mais recente tornar a operação obsoleta.
+- [x] Implementar `GET /me` e `PATCH /me` no módulo `accountApi.ts`, enviando `Authorization: Bearer <access_token>`.
+- [x] Em atualização bem-sucedida, substituir a `Account` local pela resposta da API.
+- [x] Em falha de atualização, preservar a conta anterior e disponibilizar o Problem Details para a interface.
+- [x] Normalizar falhas de rede para uma mensagem segura, sem exibir exceções internas.
+- [x] Continuar invalidando respostas antigas quando logout, troca de sessão ou uma requisição mais recente tornar a operação obsoleta.
 
 ---
 

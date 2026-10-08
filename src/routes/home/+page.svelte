@@ -106,7 +106,7 @@
 				</p>
 				<ButtonLink href="/login" class="mt-7">Ir para o login</ButtonLink>
 			</section>
-		{:else if currentAccount.loading}
+		{:else if currentAccount.status === 'loading'}
 			<section aria-label="Carregando os dados da conta" aria-busy="true">
 				<p class="text-sm font-medium text-brand">Preparando seu espaço</p>
 				<div class="mt-3 h-12 max-w-xl animate-pulse rounded-2xl bg-surface-muted"></div>
