@@ -4,9 +4,9 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { auth, destroyAuth, initAuth } from '../lib/auth.svelte';
-	import { authRedirect, isAuthManagedRoute } from '../lib/authRouting';
-	import { theme } from '../lib/ui/theme.svelte';
+	import { auth, destroyAuth, initAuth } from '#lib/features/auth/auth.svelte.js';
+	import { authRedirect, isAuthManagedRoute } from '#lib/features/auth/routing.js';
+	import { theme } from '#lib/ui/theme.svelte.js';
 	import '../styles/app.css';
 
 	const { children } = $props();

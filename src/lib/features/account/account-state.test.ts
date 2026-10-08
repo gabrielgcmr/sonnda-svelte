@@ -1,21 +1,16 @@
-// src/lib/account-state.test.ts
-import type { Session } from '@supabase/supabase-js';
+// src/lib/features/account/account-state.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getCurrentAccount } = vi.hoisted(() => ({
 	getCurrentAccount: vi.fn()
 }));
 
-vi.mock('./apiClient', () => ({
-	apiClient: {
-		GET: getCurrentAccount
-	}
+vi.mock('./accountApi', () => ({
+	getCurrentAccount
 }));
 
-import type { Account } from './account.svelte';
 import { currentAccount } from './account.svelte';
-
-const session = (accessToken: string) => ({ access_token: accessToken }) as Session;
+import type { Account } from './types';
 
 const account = (id: string): Account => ({
 	id,
@@ -42,11 +37,9 @@ describe('currentAccount', () => {
 		const expected = account('0199c265-34b1-7000-8000-000000000001');
 		getCurrentAccount.mockResolvedValue({ data: expected });
 
-		await currentAccount.load(session('access-token'));
+		await currentAccount.load('access-token');
 
-		expect(getCurrentAccount).toHaveBeenCalledWith('/me', {
-			headers: { Authorization: 'Bearer access-token' }
-		});
+		expect(getCurrentAccount).toHaveBeenCalledWith('access-token');
 		expect(currentAccount.account).toEqual(expected);
 		expect(currentAccount.problem).toBeNull();
 		expect(currentAccount.loading).toBe(false);
@@ -56,7 +49,7 @@ describe('currentAccount', () => {
 		const problem = { type: 'about:blank', title: 'Forbidden', status: 403 };
 		getCurrentAccount.mockResolvedValue({ error: problem });
 
-		await currentAccount.load(session('access-token'));
+		await currentAccount.load('access-token');
 
 		expect(currentAccount.account).toBeNull();
 		expect(currentAccount.problem).toEqual(problem);
@@ -69,8 +62,8 @@ describe('currentAccount', () => {
 			.mockReturnValueOnce(new Promise((resolve) => (resolveFirst = resolve)))
 			.mockReturnValueOnce(new Promise((resolve) => (resolveSecond = resolve)));
 
-		const firstLoad = currentAccount.load(session('first-token'));
-		const secondLoad = currentAccount.load(session('second-token'));
+		const firstLoad = currentAccount.load('first-token');
+		const secondLoad = currentAccount.load('second-token');
 		const latest = account('0199c265-34b1-7000-8000-000000000002');
 
 		resolveSecond({ data: latest });
@@ -84,7 +77,7 @@ describe('currentAccount', () => {
 	it('clears account data and invalidates an in-flight request', async () => {
 		let resolveRequest!: (value: { data: Account }) => void;
 		getCurrentAccount.mockReturnValue(new Promise((resolve) => (resolveRequest = resolve)));
-		const loading = currentAccount.load(session('access-token'));
+		const loading = currentAccount.load('access-token');
 
 		currentAccount.clear();
 		resolveRequest({ data: account('0199c265-34b1-7000-8000-000000000004') });

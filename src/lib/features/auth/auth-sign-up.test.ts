@@ -1,4 +1,4 @@
-// src/lib/auth-sign-up.test.ts
+// src/lib/features/auth/auth-sign-up.test.ts
 import type { Session, User } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +16,7 @@ vi.mock('./supabaseClient', () => ({
 	}
 }));
 
-vi.mock('./account.svelte', () => ({
+vi.mock('#lib/features/account/account.svelte.js', () => ({
 	currentAccount: {
 		load: mocks.loadAccount,
 		clear: mocks.clearAccount
@@ -56,7 +56,7 @@ describe('signUp', () => {
 		const result = await signUp('person@example.com', 'provider-policy-password');
 
 		expect(result.session).toBe(session);
-		expect(mocks.loadAccount).toHaveBeenCalledWith(session);
+		expect(mocks.loadAccount).toHaveBeenCalledWith('access-token');
 	});
 
 	it('preserves the Supabase error without attempting account provisioning', async () => {

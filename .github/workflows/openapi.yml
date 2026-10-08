@@ -35,6 +35,5 @@ jobs:
           bunx openapi-typescript "$GITHUB_WORKSPACE/.openapi/openapi.json"
           -o src/lib/generated/openapi.d.ts
       - run: git diff --exit-code -- src/lib/generated/openapi.d.ts
-      - run: bun run check
-      - run: bun run test:unit --run
-      - run: bun run build
+      - run: bunx playwright install --with-deps firefox
+      - run: bun run validate

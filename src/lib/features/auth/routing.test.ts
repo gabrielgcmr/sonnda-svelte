@@ -1,6 +1,6 @@
-// src/lib/authRouting.test.ts
+// src/lib/features/auth/routing.test.ts
 import { describe, expect, it } from 'vitest';
-import { authRedirect, isAuthManagedRoute } from './authRouting';
+import { authRedirect, isAuthManagedRoute } from './routing';
 
 describe('authRedirect', () => {
 	it.each([

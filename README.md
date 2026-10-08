@@ -1,85 +1,38 @@
-# Svelte library
+<!-- README.md -->
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+# Sonnda Web
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+Aplicação web do Sonnda construída com SvelteKit 3, Svelte 5, TypeScript e Tailwind CSS.
 
-## Creating a project
+## Desenvolvimento
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project in the current directory
-bun x sv create --install bun
-
-# create a new project in my-app
-bun x sv create --install bun my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-bun x sv@1.1.0 create --template library --types ts --add prettier eslint vitest="usages:unit,component" tailwindcss="plugins:none" --install bun sonnda-svelte
-```
-
-## Adding features
-
-Add features to your project with `sv add`:
-
-```sh
-bun x sv add
-```
-
-For example, to add Tailwind CSS:
-
-```sh
-bun x sv add tailwindcss
-```
-
-## Developing
-
-This project uses [Bun](https://bun.sh) to install dependencies and run scripts. Install the dependencies first:
+Instale as dependências e configure as variáveis descritas em `.env.example`:
 
 ```sh
 bun install
-```
-
-Then start a development server:
-
-```sh
 bun run dev
-
-# or start the server and open the app in a new browser tab
-bun run dev --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+## Comandos
 
-## Building
+- `bun run dev`: inicia o servidor de desenvolvimento.
+- `bun run check`: valida TypeScript e componentes Svelte.
+- `bun run test`: executa todos os testes uma vez.
+- `bun run test:server`: executa apenas os testes no ambiente Node.
+- `bun run test:browser`: executa apenas os testes de componentes no Firefox.
+- `bun run test:watch`: executa os testes em modo interativo.
+- `bun run lint`: verifica formatação e lint.
+- `bun run build`: gera o build de produção da aplicação.
+- `bun run preview`: executa localmente o build gerado.
+- `bun run validate`: executa lint, check, todos os testes e build na mesma ordem usada pelo CI.
 
-To build your library:
+## Organização
 
-```sh
-bun pm pack
-```
+- `src/routes`: páginas e layouts da aplicação.
+- `src/lib/features`: estado, regras e integrações organizados por feature.
+- `src/lib/api`: infraestrutura compartilhada do cliente HTTP.
+- `src/lib/ui`: componentes visuais compartilhados.
+- `src/lib/generated`: tipos gerados a partir do contrato OpenAPI; não editar manualmente.
+- `src/styles`: estilos globais, tokens semânticos e temas.
 
-To create a production version of your showcase app:
-
-```sh
-bun run build
-```
-
-You can preview the production build with `bun run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-bun publish
-```
+Imports compartilhados usam o alias `#lib/*`, conforme o padrão de subpath imports do SvelteKit 3.

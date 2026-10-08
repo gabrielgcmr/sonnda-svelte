@@ -2,20 +2,29 @@
 <script lang="ts">
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
-	type Props = {
+	type Props = Omit<
+		HTMLInputAttributes,
+		| 'aria-describedby'
+		| 'aria-invalid'
+		| 'children'
+		| 'class'
+		| 'id'
+		| 'name'
+		| 'required'
+		| 'type'
+		| 'value'
+	> & {
 		id: string;
 		name: string;
 		label: string;
 		value?: string;
-		type?: 'text' | 'email' | 'password' | 'tel' | 'date';
-		placeholder?: string;
-		autocomplete?: HTMLInputAttributes['autocomplete'];
-		inputmode?: HTMLInputAttributes['inputmode'];
-		disabled?: boolean;
+		type?: HTMLInputAttributes['type'];
 		required?: boolean;
 		error?: string | null;
 		invalid?: boolean;
 		helper?: string;
+		class?: string;
+		'aria-describedby'?: string;
 	};
 
 	let {
@@ -24,17 +33,19 @@
 		label,
 		value = $bindable(''),
 		type = 'text',
-		placeholder,
-		autocomplete,
-		inputmode,
-		disabled = false,
 		required = false,
 		error = null,
 		invalid = false,
-		helper
+		helper,
+		class: className = '',
+		'aria-describedby': externalDescriptionId,
+		...inputAttributes
 	}: Props = $props();
 
-	const descriptionId = $derived(error ? `${id}-error` : helper ? `${id}-helper` : undefined);
+	const localDescriptionId = $derived(error ? `${id}-error` : helper ? `${id}-helper` : undefined);
+	const descriptionId = $derived(
+		[externalDescriptionId, localDescriptionId].filter(Boolean).join(' ') || undefined
+	);
 </script>
 
 <div>
@@ -43,18 +54,15 @@
 		{#if required}<span class="text-danger" aria-hidden="true"> *</span>{/if}
 	</label>
 	<input
+		{...inputAttributes}
 		{id}
 		{name}
 		{type}
 		bind:value
-		{placeholder}
-		{autocomplete}
-		{inputmode}
-		{disabled}
 		{required}
 		aria-invalid={error || invalid ? 'true' : undefined}
 		aria-describedby={descriptionId}
-		class="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base text-on-surface transition outline-none placeholder:text-on-surface-muted focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-surface-muted"
+		class={`w-full rounded-xl border border-border bg-surface px-4 py-3 text-base text-on-surface transition outline-none placeholder:text-on-surface-muted focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-surface-muted ${className}`}
 	/>
 	{#if error}
 		<p id={`${id}-error`} class="mt-2 text-sm text-danger">{error}</p>

@@ -1,4 +1,4 @@
-// src/lib/supabaseClient.ts
+// src/lib/features/auth/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY } from '$app/env/public';
 

@@ -1,11 +1,11 @@
 <!-- src/routes/login/+page.svelte -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { auth, signIn } from '../../lib/auth.svelte';
-	import Alert from '../../lib/ui/Alert.svelte';
-	import AuthShell from '../../lib/ui/AuthShell.svelte';
-	import Button from '../../lib/ui/Button.svelte';
-	import TextField from '../../lib/ui/TextField.svelte';
+	import { auth, signIn } from '#lib/features/auth/auth.svelte.js';
+	import Alert from '#lib/ui/Alert.svelte';
+	import AuthShell from '#lib/ui/AuthShell.svelte';
+	import Button from '#lib/ui/Button.svelte';
+	import TextField from '#lib/ui/TextField.svelte';
 
 	let email = $state('');
 	let password = $state('');

@@ -1,3 +1,5 @@
+# .prettierignore
+
 # Package Managers
 package-lock.json
 pnpm-lock.yaml
@@ -7,3 +9,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# OpenAPI generated files
+/src/lib/generated/

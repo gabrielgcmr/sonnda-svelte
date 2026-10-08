@@ -1,10 +1,6 @@
-// src/lib/account.svelte.ts
-import type { Session } from '@supabase/supabase-js';
-import type { components } from './generated/openapi';
-import { apiClient } from './apiClient';
-
-export type Account = components['schemas']['AccountResponse'];
-export type AccountProblem = components['schemas']['ErrorModel'];
+// src/lib/features/account/account.svelte.ts
+import { getCurrentAccount } from './accountApi';
+import type { Account, AccountProblem } from './types';
 
 class AccountState {
 	account = $state.raw<Account | null>(null);
@@ -20,17 +16,13 @@ class AccountState {
 		this.loading = false;
 	}
 
-	async load(session: Session) {
+	async load(accessToken: string) {
 		const requestVersion = ++this.#requestVersion;
 		this.loading = true;
 		this.problem = null;
 
 		try {
-			const { data, error } = await apiClient.GET('/me', {
-				headers: {
-					Authorization: `Bearer ${session.access_token}`
-				}
-			});
+			const { data, error } = await getCurrentAccount(accessToken);
 
 			if (requestVersion !== this.#requestVersion) return;
 

@@ -1,6 +1,6 @@
-// src/lib/auth.svelte.ts
+// src/lib/features/auth/auth.svelte.ts
 import type { Session, User } from '@supabase/supabase-js';
-import { currentAccount } from './account.svelte';
+import { currentAccount } from '#lib/features/account/account.svelte.js';
 import { supabase } from './supabaseClient';
 
 class Auth {
@@ -23,7 +23,7 @@ class Auth {
 			return;
 		}
 
-		await currentAccount.load(session);
+		await currentAccount.load(session.access_token);
 	}
 
 	async #initialize(generation: number) {

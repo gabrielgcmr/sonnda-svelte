@@ -1,4 +1,4 @@
-// src/lib/authRouting.ts
+// src/lib/features/auth/routing.ts
 const loginPath = '/login';
 const registerPath = '/register';
 const homePath = '/home';

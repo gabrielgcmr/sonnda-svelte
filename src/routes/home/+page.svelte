@@ -1,12 +1,13 @@
 <!-- src/routes/home/+page.svelte -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { currentAccount } from '../../lib/account.svelte';
-	import { auth, signOut } from '../../lib/auth.svelte';
-	import Alert from '../../lib/ui/Alert.svelte';
-	import Button from '../../lib/ui/Button.svelte';
-	import Card from '../../lib/ui/Card.svelte';
-	import ThemeToggle from '../../lib/ui/ThemeToggle.svelte';
+	import { currentAccount } from '#lib/features/account/account.svelte.js';
+	import { auth, signOut } from '#lib/features/auth/auth.svelte.js';
+	import Alert from '#lib/ui/Alert.svelte';
+	import Button from '#lib/ui/Button.svelte';
+	import ButtonLink from '#lib/ui/ButtonLink.svelte';
+	import Card from '#lib/ui/Card.svelte';
+	import ThemeToggle from '#lib/ui/ThemeToggle.svelte';
 
 	let loggingOut = $state(false);
 	let logoutError = $state<string | null>(null);
@@ -29,7 +30,7 @@
 	}
 
 	async function retryAccount() {
-		if (auth.session) await currentAccount.load(auth.session);
+		if (auth.session) await currentAccount.load(auth.session.access_token);
 	}
 
 	async function handleSignOut() {
@@ -103,7 +104,7 @@
 				<p class="mt-3 leading-7 text-on-surface-muted">
 					Entre novamente para acessar sua conta Sonnda.
 				</p>
-				<Button href="/login" class="mt-7">Ir para o login</Button>
+				<ButtonLink href="/login" class="mt-7">Ir para o login</ButtonLink>
 			</section>
 		{:else if currentAccount.loading}
 			<section aria-label="Carregando os dados da conta" aria-busy="true">

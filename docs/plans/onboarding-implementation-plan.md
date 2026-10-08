@@ -10,27 +10,27 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 ## 2. Fundação visual
 
-- [ ] Mover o CSS global de `src/routes/layout.css` para `src/styles/app.css` e manter uma única importação no layout raiz.
-- [ ] Organizar as paletas em `src/styles/themes/` de acordo com seus seletores reais, pois os nomes atuais dos arquivos não correspondem integralmente ao conteúdo:
+- [x] Mover o CSS global de `src/routes/layout.css` para `src/styles/app.css` e manter uma única importação no layout raiz.
+- [x] Organizar as paletas em `src/styles/themes/` de acordo com seus seletores reais, pois os nomes atuais dos arquivos não correspondem integralmente ao conteúdo:
   - Usar a paleta que declara `.light` como tema claro ativo.
   - Usar a paleta que declara `.dark` como tema escuro ativo.
   - Manter as variantes de contraste em `src/styles/themes/variants/`, sem carregá-las como temas ativos nesta entrega.
-- [ ] Mapear os tokens `--md-sys-color-*` para tokens Tailwind semânticos com `@theme inline`, cobrindo marca, superfícies, textos, bordas, sucesso, alerta e erro.
-- [ ] Aplicar a classe `.light` ou `.dark` no elemento `<html>` antes da hidratação para evitar flash do tema incorreto.
-- [ ] Resolver o tema inicial nesta ordem:
+- [x] Mapear os tokens `--md-sys-color-*` para tokens Tailwind semânticos com `@theme inline`, cobrindo marca, superfícies, textos, bordas, sucesso, alerta e erro.
+- [x] Aplicar a classe `.light` ou `.dark` no elemento `<html>` antes da hidratação para evitar flash do tema incorreto.
+- [x] Resolver o tema inicial nesta ordem:
   1. Preferência persistida em `localStorage` sob a chave `sonnda-theme`.
   2. Preferência do sistema via `prefers-color-scheme`.
   3. Tema claro como fallback.
-- [ ] Criar um estado reativo de tema com `light`, `dark` e `system`, persistindo apenas escolhas explícitas e acompanhando mudanças do sistema enquanto o modo for `system`.
-- [ ] Criar um `ThemeToggle` acessível, com rótulo e estado anunciados, disponível nas telas de autenticação e no cabeçalho autenticado.
-- [ ] Criar componentes compartilhados `Button`, `TextField`, `Alert`, `Card` e um shell de autenticação, usando exclusivamente tokens semânticos.
-- [ ] Migrar Login, Cadastro e Home para os componentes e tokens novos, preservando seus comportamentos atuais.
+- [x] Criar um estado reativo de tema com `light`, `dark` e `system`, persistindo apenas escolhas explícitas e acompanhando mudanças do sistema enquanto o modo for `system`.
+- [x] Criar um `ThemeToggle` acessível, com rótulo e estado anunciados, disponível nas telas de autenticação e no cabeçalho autenticado.
+- [x] Criar componentes compartilhados `Button`, `TextField`, `Alert`, `Card` e um shell de autenticação, usando exclusivamente tokens semânticos.
+- [x] Migrar Login, Cadastro e Home para os componentes e tokens novos, preservando seus comportamentos atuais.
 
 ---
 
 ## 3. Arquitetura frontend
 
-- [ ] Organizar `src/lib` por responsabilidade:
+- [x] Organizar `src/lib` por responsabilidade:
 
   ```text
   src/lib/
@@ -56,11 +56,11 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
       └── ThemeToggle.svelte
   ```
 
-- [ ] Atualizar imports e testes após as movimentações, sem criar barrels que introduzam dependências circulares.
-- [ ] Manter o estado com runes do Svelte; não adicionar biblioteca externa de gerenciamento de estado.
-- [ ] Manter `src/lib/generated/openapi.d.ts` como código gerado e nunca editá-lo manualmente.
-- [ ] Separar chamadas HTTP da feature `account` do seu estado reativo.
-- [ ] Definir os tipos `Account`, `AccountProblem` e `UpdateAccountInput` a partir do contrato OpenAPI gerado.
+- [x] Atualizar imports e testes após as movimentações, sem criar barrels que introduzam dependências circulares.
+- [x] Manter o estado com runes do Svelte; não adicionar biblioteca externa de gerenciamento de estado.
+- [x] Manter `src/lib/generated/openapi.d.ts` como código gerado e nunca editá-lo manualmente.
+- [x] Separar chamadas HTTP da feature `account` do seu estado reativo.
+- [x] Definir os tipos `Account`, `AccountProblem` e `UpdateAccountInput` a partir do contrato OpenAPI gerado.
 
 ---
 
@@ -71,7 +71,7 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
   - `account`: conta resolvida ou `null`.
   - `problem`: Problem Details seguro ou `null`.
   - `saving`: estado independente de atualização do perfil.
-  - `load(session)`, `updateProfile(session, input)` e `clear()`.
+  - `load(accessToken)`, `updateProfile(accessToken, input)` e `clear()`.
 - [ ] Implementar `GET /me` e `PATCH /me` no módulo `accountApi.ts`, enviando `Authorization: Bearer <access_token>`.
 - [ ] Em atualização bem-sucedida, substituir a `Account` local pela resposta da API.
 - [ ] Em falha de atualização, preservar a conta anterior e disponibilizar o Problem Details para a interface.

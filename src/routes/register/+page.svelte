@@ -1,11 +1,12 @@
 <!-- src/routes/register/+page.svelte -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { signUp } from '../../lib/auth.svelte';
-	import Alert from '../../lib/ui/Alert.svelte';
-	import AuthShell from '../../lib/ui/AuthShell.svelte';
-	import Button from '../../lib/ui/Button.svelte';
-	import TextField from '../../lib/ui/TextField.svelte';
+	import { signUp } from '#lib/features/auth/auth.svelte.js';
+	import Alert from '#lib/ui/Alert.svelte';
+	import AuthShell from '#lib/ui/AuthShell.svelte';
+	import Button from '#lib/ui/Button.svelte';
+	import ButtonLink from '#lib/ui/ButtonLink.svelte';
+	import TextField from '#lib/ui/TextField.svelte';
 
 	let email = $state('');
 	let password = $state('');
@@ -112,7 +113,7 @@
 					/>
 				</svg>
 			</div>
-			<Button href="/login" class="mt-7">Ir para o login</Button>
+			<ButtonLink href="/login" class="mt-7">Ir para o login</ButtonLink>
 		</div>
 	{:else}
 		<form class="space-y-5" onsubmit={handleSubmit} novalidate>
