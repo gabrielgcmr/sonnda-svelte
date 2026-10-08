@@ -1,6 +1,7 @@
 // src/lib/features/auth/auth.svelte.ts
 import type { Session, User } from '@supabase/supabase-js';
 import { currentAccount } from '#lib/features/account/account.svelte.js';
+import { patientWorkspace } from '#lib/features/patient/patientWorkspace.svelte.js';
 import { supabase } from './supabaseClient';
 
 class Auth {
@@ -15,11 +16,14 @@ class Auth {
 
 	async #applySession(session: Session | null, force = false) {
 		const changed = this.session?.access_token !== session?.access_token;
+		const identityChanged = this.session?.user.id !== session?.user.id;
 		this.session = session;
 
 		if (!changed && !force) return;
+		if (identityChanged) patientWorkspace.clear();
 		if (!session) {
 			currentAccount.clear();
+			patientWorkspace.clear();
 			return;
 		}
 
@@ -102,6 +106,7 @@ class Auth {
 		this.ready = false;
 		this.initializationError = null;
 		currentAccount.clear();
+		patientWorkspace.clear();
 	};
 }
 

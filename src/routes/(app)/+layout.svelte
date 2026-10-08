@@ -1,6 +1,7 @@
 <!-- src/routes/(app)/+layout.svelte -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { accountTypeLabel } from '#lib/features/account/presentation.js';
 	import { auth, signOut } from '#lib/features/auth/auth.svelte.js';
@@ -17,6 +18,9 @@
 			'Usuário Sonnda'
 	);
 	const careType = $derived(accountTypeLabel(currentAccount.account?.account_type));
+	const inPatientContext = $derived(
+		page.url.pathname === '/patients' || page.url.pathname.startsWith('/patients/')
+	);
 
 	async function handleSignOut() {
 		logoutError = null;
@@ -34,7 +38,14 @@
 </script>
 
 <div class="min-h-screen bg-canvas text-on-canvas">
-	<AppHeader {displayName} {careType} {loggingOut} onSignOut={handleSignOut} />
+	<AppHeader
+		{displayName}
+		{careType}
+		{loggingOut}
+		returnHref={inPatientContext ? '/home' : undefined}
+		returnLabel="Meus pacientes"
+		onSignOut={handleSignOut}
+	/>
 	{#if logoutError}
 		<div class="mx-auto max-w-6xl px-6 pt-4 lg:px-8">
 			<Alert variant="error">{logoutError}</Alert>

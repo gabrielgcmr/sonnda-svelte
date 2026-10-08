@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
 	signUp: vi.fn(),
 	signInWithPassword: vi.fn(),
 	loadAccount: vi.fn(),
-	clearAccount: vi.fn()
+	clearAccount: vi.fn(),
+	clearPatients: vi.fn()
 }));
 
 vi.mock('./supabaseClient', () => ({
@@ -25,6 +26,10 @@ vi.mock('#lib/features/account/account.svelte.js', () => ({
 	}
 }));
 
+vi.mock('#lib/features/patient/patientWorkspace.svelte.js', () => ({
+	patientWorkspace: { clear: mocks.clearPatients }
+}));
+
 import { auth, destroyAuth, signIn, signUp } from './auth.svelte';
 
 const user = { id: '0199c265-34b1-7000-8000-000000000010' } as User;
@@ -36,6 +41,7 @@ beforeEach(() => {
 	mocks.signInWithPassword.mockReset();
 	mocks.loadAccount.mockReset();
 	mocks.clearAccount.mockReset();
+	mocks.clearPatients.mockReset();
 });
 
 describe('signIn', () => {
@@ -47,6 +53,22 @@ describe('signIn', () => {
 
 		expect(mocks.loadAccount).toHaveBeenCalledWith('access-token');
 		expect(auth.session).toBe(session);
+	});
+
+	it('clears patient data before loading a different signed-in user', async () => {
+		const otherUser = { id: '0199c265-34b1-7000-8000-000000000011' } as User;
+		const otherSession = { access_token: 'other-token', user: otherUser } as Session;
+		mocks.signInWithPassword
+			.mockResolvedValueOnce({ data: { user, session }, error: null })
+			.mockResolvedValueOnce({ data: { user: otherUser, session: otherSession }, error: null });
+		mocks.loadAccount.mockResolvedValue(undefined);
+
+		await signIn('first@example.com', 'password');
+		mocks.clearPatients.mockClear();
+		await signIn('second@example.com', 'password');
+
+		expect(mocks.clearPatients).toHaveBeenCalledOnce();
+		expect(mocks.loadAccount).toHaveBeenLastCalledWith('other-token');
 	});
 });
 

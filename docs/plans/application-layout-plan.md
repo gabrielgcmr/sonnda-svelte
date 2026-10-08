@@ -12,7 +12,7 @@ Reutilizar os componentes, tokens visuais e temas claro/escuro existentes. Mante
 
 ## Parte A — Layout
 
-### A1 — Header compartilhado e navegação principal
+### A1 — Header compartilhado e navegação principal (Concluido)
 
 - Header com Sonnda à esquerda e nome do usuário, tipo de cuidado, controle de tema e saída à direita.
 - Usar os dados da conta já carregada: `profile.full_name` para o nome, “Cuidados básicos” para `basic_care` e “Profissional” para `professional`.
@@ -22,16 +22,16 @@ Reutilizar os componentes, tokens visuais e temas claro/escuro existentes. Mante
 
 **Aceite:** navegação, tema e saída funcionam; nome e tipo de cuidado aparecem no header.
 
-### A2 — Páginas das ferramentas do usuário
+### A2 — Páginas das ferramentas do usuário (Concluído)
 
 - **Meus pacientes:** preparar campo de busca por nome, lista compacta com avatar ou iniciais, nome e ação “Abrir”. Preparar estados de carregamento, lista vazia, nenhum resultado e falha com opção de tentar novamente.
 - **Extrair exames:** preparar layout em duas colunas, envio à esquerda e resultado à direita. Nesta entrega, apresentar “Em breve” e não habilitar envio à API.
-- **Cálculos clínicos:** preparar a entrada para FIB-4 com indicação “Em breve”. A organização deve permitir adicionar TFG, IMC e outros cálculos futuramente.
+- **Cálculos clínicos:** usar duas colunas, com os inputs da calculadora selecionada à esquerda e a lista de calculadoras à direita. Preparar a entrada para FIB-4 com indicação “Em breve” e listar TFG e IMC como opções futuras.
 - Usar fixtures apenas em testes e revisão visual para conferir os estados da lista e a abertura do paciente. Na aplicação normal, informar quando a integração ainda não estiver disponível; não apresentar pacientes fictícios como dados reais.
 
 **Aceite:** as três páginas são navegáveis e seus estados visuais podem ser revisados sem integração clínica.
 
-### A3 — Layout do contexto do paciente
+### A3 — Layout do contexto do paciente (Concluído)
 
 - Manter o header do usuário logado.
 - Substituir a navegação horizontal pela identificação do paciente logo abaixo do header: nome, idade, data de nascimento e outros dados cadastrais disponíveis.
@@ -58,7 +58,7 @@ Reutilizar os componentes, tokens visuais e temas claro/escuro existentes. Mante
 
 Estas etapas usam o layout concluído na Parte A. Cada uma deve poder ser entregue e verificada separadamente.
 
-### B1 — Lista real e seleção de pacientes
+### B1 — Lista real e seleção de pacientes (Concluído)
 
 - Conectar Meus pacientes a `GET /me/patients`, usando o cliente OpenAPI existente e o token da sessão atual.
 - Carregar páginas de até 100 registros. Como o contrato atual não oferece filtro por nome, filtrar no navegador ignorando maiúsculas e acentos.
