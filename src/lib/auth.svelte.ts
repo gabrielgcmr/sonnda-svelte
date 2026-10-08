@@ -76,6 +76,17 @@ class Auth {
 		return data;
 	};
 
+	signUp = async (email: string, password: string) => {
+		const { data, error } = await supabase.auth.signUp({ email, password });
+		if (error) throw error;
+
+		if (data.session) {
+			await this.#applySession(data.session, true);
+		}
+
+		return data;
+	};
+
 	signOut = async () => {
 		const { error } = await supabase.auth.signOut();
 		if (error) throw error;
@@ -102,6 +113,10 @@ export function initAuth() {
 
 export function signIn(email: string, password: string) {
 	return auth.signIn(email, password);
+}
+
+export function signUp(email: string, password: string) {
+	return auth.signUp(email, password);
 }
 
 export function signOut() {

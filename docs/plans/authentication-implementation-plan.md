@@ -77,16 +77,16 @@ sonnda-svelte/
 
 ### Etapa 4: Cadastro de Usuário (`/register`)
 
-- [ ] Adicionar `signUp(email, password)` em `src/lib/auth.svelte.ts` usando `supabase.auth.signUp`.
-- [ ] Criar a rota `src/routes/register/+page.svelte`:
+- [x] Adicionar `signUp(email, password)` em `src/lib/auth.svelte.ts` usando `supabase.auth.signUp`.
+- [x] Criar a rota `src/routes/register/+page.svelte`:
   - Formulário com campos de e-mail, senha e confirmação de senha.
-  - Validação de campos obrigatórios, formato do e-mail, senha mínima e confirmação correspondente.
+  - Validação de campos obrigatórios, formato do e-mail e confirmação correspondente; a política de força da senha é validada pelo Supabase.
   - Indicador de carregamento durante o envio e mensagens seguras baseadas nos códigos de erro do Supabase.
   - Link de retorno para `/login` e link de acesso ao cadastro na tela de login.
-- [ ] Tratar os resultados possíveis do Supabase:
+- [x] Tratar os resultados possíveis do Supabase:
   - Com confirmação de e-mail habilitada, informar que o usuário deve confirmar o endereço antes de entrar.
   - Com sessão criada imediatamente, carregar/provisionar a `Account` por `GET /me` e redirecionar para `/home`.
-- [ ] Não criar a `Account` diretamente pelo frontend; manter o provisionamento na API após a primeira sessão autenticada.
+- [x] Não criar a `Account` diretamente pelo frontend; manter o provisionamento na API após a primeira sessão autenticada.
 
 ### Etapa 5: Página Home com Boas-Vindas (`/home`)
 
@@ -97,10 +97,10 @@ sonnda-svelte/
 
 ### Etapa 6: Proteção de Rotas e Redirecionamentos
 
-- [ ] Configurar controle de acesso nas rotas:
+- [x] Configurar controle de acesso nas rotas:
   - [x] Redirecionar usuários **não autenticados** de `/home` para `/login`.
   - [x] Redirecionar usuários **já autenticados** de `/login` para `/home`.
-  - [ ] Redirecionar usuários **já autenticados** de `/register` para `/home`.
+  - [x] Redirecionar usuários **já autenticados** de `/register` para `/home`.
   - [x] Na rota raiz `/`, redirecionar automaticamente para `/home` (se logado) ou `/login` (se deslogado).
 
 ---

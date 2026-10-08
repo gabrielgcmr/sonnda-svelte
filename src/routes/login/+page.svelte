@@ -154,6 +154,16 @@
 						{/if}
 					</button>
 				</form>
+
+				<p class="mt-7 text-center text-sm text-slate-600">
+					Ainda não tem uma conta?
+					<a
+						href="/register"
+						class="font-semibold text-teal-700 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+					>
+						Cadastre-se
+					</a>
+				</p>
 			</div>
 
 			<p class="mt-6 text-center text-xs leading-5 text-slate-500">

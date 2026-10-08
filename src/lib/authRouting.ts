@@ -1,5 +1,6 @@
 // src/lib/authRouting.ts
 const loginPath = '/login';
+const registerPath = '/register';
 const homePath = '/home';
 
 function normalizePath(pathname: string) {
@@ -8,7 +9,7 @@ function normalizePath(pathname: string) {
 
 export function isAuthManagedRoute(pathname: string) {
 	const path = normalizePath(pathname);
-	return path === '/' || path === loginPath || path === homePath;
+	return path === '/' || path === loginPath || path === registerPath || path === homePath;
 }
 
 export function authRedirect(pathname: string, authenticated: boolean) {
@@ -17,7 +18,7 @@ export function authRedirect(pathname: string, authenticated: boolean) {
 	if (path === '/') {
 		return authenticated ? homePath : loginPath;
 	}
-	if (path === loginPath && authenticated) {
+	if ((path === loginPath || path === registerPath) && authenticated) {
 		return homePath;
 	}
 	if (path === homePath && !authenticated) {

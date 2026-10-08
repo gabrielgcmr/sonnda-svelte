@@ -346,6 +346,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patientId}/problems/{problemId}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unificar problemas no destino (profissional com acesso)
+         * @description Exige version atual. Conflito de versão retorna 409; consulte novamente antes de decidir repetir. Grava alteração e auditoria atomicamente. Registros unificados ou retificados não podem ser alterados. O problema da rota é o destino. sources, name, cid11, classification e clinical_status são escolhas explícitas. cid11 deve ser objeto ou null. Destino, origens e eventos são atualizados na mesma transação.
+         */
+        post: operations["mergePatientProblems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/problems/{problemId}/rectify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retificar problema registrado por engano (profissional com acesso)
+         * @description Exige version atual. Conflito de versão retorna 409; consulte novamente antes de decidir repetir. Grava alteração e auditoria atomicamente. Registros unificados ou retificados não podem ser alterados. reason é obrigatório. A retificação preserva conteúdo e histórico e remove o registro da listagem padrão.
+         */
+        post: operations["rectifyPatientProblem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patientId}/problems/{problemId}/reopen": {
         parameters: {
             query?: never;
@@ -701,6 +741,39 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        MergeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MergeInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description CID-11 final; null representa escolha explícita sem código */
+            cid11: {
+                code: string;
+                system: string;
+                version: string;
+            } | null;
+            /** @enum {string} */
+            classification: "acute" | "chronic";
+            /** @enum {string} */
+            clinical_status: "active" | "resolved";
+            /** @description Nome final escolhido explicitamente */
+            name: string;
+            /** @description Origens e suas versões atuais esperadas */
+            sources: components["schemas"]["MergeSource"][] | null;
+            /**
+             * Format: int64
+             * @description Versão atual esperada do problema de destino
+             */
+            version: number;
+        };
+        MergeSource: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            version: number;
+        };
         ObservationOutput: {
             id: string;
             parameter_name: string;
@@ -733,11 +806,12 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description CID-11 final; null representa escolha explícita sem código */
         ProblemCID11: {
             code: string;
             system: string;
             version: string;
-        };
+        } | null;
         ProblemHistoryEvent: {
             /** @enum {string} */
             action: "created" | "edited" | "classified" | "resolved" | "reopened" | "rectified" | "merged_source" | "merged_destination";
@@ -837,6 +911,21 @@ export interface components {
             readonly $schema?: string;
             /** @description Senha de habilitação profissional */
             password: string;
+        };
+        RectifyInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RectifyInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Motivo da retificação */
+            reason: string;
+            /**
+             * Format: int64
+             * @description Versão atual esperada do problema
+             */
+            version: number;
         };
         Result: {
             /**
@@ -2647,6 +2736,186 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    mergePatientProblems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+                problemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    rectifyPatientProblem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+                problemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RectifyInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
