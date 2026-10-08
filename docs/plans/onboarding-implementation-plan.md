@@ -82,18 +82,18 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 ## 5. Onboarding (`/onboarding`)
 
-- [ ] Criar uma única tela com:
+- [x] Criar uma única tela com:
   - Nome completo obrigatório, normalizado com `trim`, entre 2 e 120 caracteres.
   - Data de nascimento obrigatória, no formato de data e não futura.
   - CPF opcional; remover pontuação e aceitar exatamente 11 dígitos quando preenchido.
   - Telefone opcional; remover espaços e pontuação, preservar `+` inicial e aceitar entre 10 e 15 dígitos.
-- [ ] Inicializar o formulário com valores já presentes em `account.profile`, permitindo retomada do onboarding.
-- [ ] Omitir CPF e telefone vazios do payload; não enviar `null` durante o onboarding.
-- [ ] Exibir validações locais junto aos campos e Problem Details da API em um alerta geral.
-- [ ] Bloquear submissões duplicadas e apresentar loading durante `PATCH /me`.
-- [ ] Quando a resposta retornar `onboarding_completed: true`, atualizar o estado e navegar para `/home`.
-- [ ] Se a resposta for aceita mas continuar incompleta, permanecer na tela e destacar nome ou nascimento pendentes.
-- [ ] Oferecer logout na tela para que o usuário possa trocar de conta.
+- [x] Inicializar o formulário com valores já presentes em `account.profile`, permitindo retomada do onboarding.
+- [x] Omitir CPF e telefone vazios do payload; não enviar `null` durante o onboarding.
+- [x] Exibir validações locais junto aos campos e Problem Details da API em um alerta geral.
+- [x] Bloquear submissões duplicadas e apresentar loading durante `PATCH /me`.
+- [x] Quando a resposta retornar `onboarding_completed: true`, atualizar o estado e navegar para `/home`.
+- [x] Se a resposta for aceita mas continuar incompleta, permanecer na tela e destacar nome ou nascimento pendentes.
+- [x] Oferecer logout na tela para que o usuário possa trocar de conta.
 
 ---
 
@@ -124,13 +124,13 @@ Organizar o frontend por feature, aplicar temas claro e escuro e implementar o o
 
 - [ ] Testar seleção inicial, persistência, alternância e ausência de flash dos temas claro e escuro.
 - [ ] Verificar contraste, foco visível e legibilidade dos componentes nos dois temas.
-- [ ] Testar `PATCH /me`: payload normalizado, sucesso, 400/403/409/422/500, falha de rede e resposta obsoleta.
-- [ ] Testar validações de nome, nascimento futuro, CPF e telefone.
+- [x] Testar `PATCH /me`: payload normalizado, sucesso, 400/403/409/422/500, falha de rede e resposta obsoleta.
+- [x] Testar validações de nome, nascimento futuro, CPF e telefone.
 - [ ] Cobrir a matriz de rotas para usuário anônimo, Account incompleta, Account completa, carregamento e erro.
 - [ ] Testar que cadastro com sessão imediata direciona ao onboarding quando a Account nasce incompleta.
 - [ ] Testar que login após confirmação de e-mail também direciona ao onboarding.
 - [ ] Testar retomada e conclusão do onboarding, atualização do estado e redirecionamento para a Home.
-- [ ] Executar `svelte-check`, testes unitários, ESLint e build.
+- [x] Executar `svelte-check`, testes unitários, ESLint e build.
 - [ ] Fazer regressão manual de Login, Cadastro, Home, Logout e alternância de tema em viewport móvel e desktop.
 
 ---
