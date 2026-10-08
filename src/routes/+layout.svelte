@@ -6,7 +6,8 @@
 	import { onMount } from 'svelte';
 	import { auth, destroyAuth, initAuth } from '../lib/auth.svelte';
 	import { authRedirect, isAuthManagedRoute } from '../lib/authRouting';
-	import './layout.css';
+	import { theme } from '../lib/ui/theme.svelte';
+	import '../styles/app.css';
 
 	const { children } = $props();
 	let redirectingTo = $state<string | null>(null);
@@ -18,8 +19,12 @@
 	const showContent = $derived(!managedRoute || (auth.ready && redirectTarget === null));
 
 	onMount(() => {
+		theme.init();
 		void initAuth();
-		return destroyAuth;
+		return () => {
+			theme.destroy();
+			destroyAuth();
+		};
 	});
 
 	$effect(() => {
@@ -38,13 +43,13 @@
 {#if showContent}
 	{@render children()}
 {:else}
-	<main class="grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-950">
+	<main class="grid min-h-screen place-items-center bg-canvas px-4 text-on-canvas">
 		<div class="text-center" role="status" aria-live="polite">
 			<div
-				class="mx-auto size-8 animate-spin rounded-full border-2 border-teal-100 border-t-teal-700"
+				class="mx-auto size-8 animate-spin rounded-full border-2 border-brand/25 border-t-brand"
 				aria-hidden="true"
 			></div>
-			<p class="mt-4 text-sm font-medium text-slate-600">
+			<p class="mt-4 text-sm font-medium text-on-surface-muted">
 				{auth.ready ? 'Redirecionando...' : 'Verificando sua sessão...'}
 			</p>
 		</div>
