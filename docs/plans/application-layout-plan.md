@@ -81,7 +81,7 @@ Estas etapas usam o layout concluído na Parte A. Cada uma deve poder ser entreg
 
 **Aceite:** um paciente válido é criado e aberto; o cadastro aparece ao retornar para a lista; erros locais e da API são apresentados sem perder os dados digitados.
 
-### B2 — Extração standalone de exames
+### B2 — Extração standalone de exames (Concluído)
 
 - Conectar Extrair exames a `POST /lab-extractions`, usando o contrato OpenAPI atual.
 - Aceitar um PDF de até 10 MB conforme o contrato existente; validar arquivo ausente, vazio, formato e tamanho antes do envio, mantendo a validação da API como autoridade final.
