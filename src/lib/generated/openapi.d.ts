@@ -184,8 +184,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar pacientes acessíveis pela conta atual */
-        get: operations["listPatients"];
+        get?: never;
         put?: never;
         /** Criar paciente e conceder acesso inicial à conta atual */
         post: operations["createPatient"];
@@ -206,10 +205,12 @@ export interface paths {
         get: operations["getPatient"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Desativar um paciente */
+        delete: operations["deletePatient"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Atualizar o perfil de um paciente */
+        patch: operations["updatePatient"];
         trace?: never;
     };
     "/patients/{patientId}/exam-document-texts": {
@@ -970,6 +971,26 @@ export interface components {
             full_name?: string | null;
             /** @description Telefone; vazio ou null remove o valor */
             phone?: string | null;
+        };
+        UpdatePatientRequest: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdatePatientRequest.json
+             */
+            readonly $schema?: string;
+            /** @description URL do avatar; vazio ou null remove o valor */
+            avatar_url?: string | null;
+            /** @description CNS; vazio ou null remove o valor */
+            cns?: string | null;
+            /** @description Nome completo */
+            full_name?: string | null;
+            /** @description Gênero */
+            gender?: string | null;
+            /** @description Telefone; vazio ou null remove o valor */
+            phone?: string | null;
+            /** @description Raça/cor */
+            race?: string | null;
         };
     };
     responses: never;
@@ -1811,53 +1832,6 @@ export interface operations {
             };
         };
     };
-    listPatients: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PatientResponse"][] | null;
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     createPatient: {
         parameters: {
             query?: never;
@@ -1969,6 +1943,153 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deletePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador do paciente */
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updatePatient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador do paciente */
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePatientRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
