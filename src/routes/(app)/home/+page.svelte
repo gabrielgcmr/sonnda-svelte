@@ -6,6 +6,7 @@
 	import { patientWorkspace } from '#lib/features/patient/patientWorkspace.svelte.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
+	import ButtonLink from '#lib/ui/ButtonLink.svelte';
 	import Card from '#lib/ui/Card.svelte';
 
 	const accessToken = $derived(auth.session?.access_token ?? null);
@@ -32,11 +33,16 @@
 </svelte:head>
 
 <section aria-labelledby="patients-title">
-	<p class="text-sm font-semibold text-brand">Área de trabalho</p>
-	<h1 id="patients-title" class="mt-2 text-3xl font-semibold tracking-tight">Meus pacientes</h1>
-	<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
-		Consulte e selecione os pacientes aos quais você tem acesso.
-	</p>
+	<div class="flex flex-wrap items-end justify-between gap-5">
+		<div>
+			<p class="text-sm font-semibold text-brand">Área de trabalho</p>
+			<h1 id="patients-title" class="mt-2 text-3xl font-semibold tracking-tight">Meus pacientes</h1>
+			<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
+				Consulte e selecione os pacientes aos quais você tem acesso.
+			</p>
+		</div>
+		<ButtonLink href="/patients/new">Adicionar paciente</ButtonLink>
+	</div>
 
 	<Card class="mt-8">
 		<label for="patient-search" class="block text-sm font-medium text-on-surface">

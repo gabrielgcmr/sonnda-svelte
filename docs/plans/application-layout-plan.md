@@ -70,6 +70,17 @@ Estas etapas usam o layout concluído na Parte A. Cada uma deve poder ser entreg
 
 **Aceite:** pacientes além da primeira página são encontrados; seleção e acesso direto carregam o perfil correto; troca de paciente e logout não deixam dados antigos visíveis.
 
+### B1.1 — Cadastro de paciente (Concluído)
+
+- Disponibilizar “Adicionar paciente” em Meus pacientes e abrir um formulário próprio em `/patients/new`.
+- Coletar os campos exigidos por `POST /patients`: nome, nascimento, CPF, gênero, raça/cor e vínculo inicial. CNS e telefone permanecem opcionais.
+- Validar formato, data e dígitos verificadores de CPF e CNS antes do envio, mantendo a API como autoridade final.
+- Exigir a escolha explícita do vínculo inicial: próprio paciente, familiar, cuidador ou profissional.
+- Após a criação, invalidar a lista em memória e abrir o contexto do novo paciente. Preservar a busca para o retorno e recarregar a lista pela API.
+- Tratar conflito de CPF, falhas de validação, autorização e conexão sem expor detalhes internos.
+
+**Aceite:** um paciente válido é criado e aberto; o cadastro aparece ao retornar para a lista; erros locais e da API são apresentados sem perder os dados digitados.
+
 ### B2 — Extração standalone de exames
 
 - Conectar Extrair exames a `POST /lab-extractions`, usando o contrato OpenAPI atual.

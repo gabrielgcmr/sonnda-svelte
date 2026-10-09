@@ -73,6 +73,7 @@ describe('isAuthManagedRoute', () => {
 		'/home/exams',
 		'/home/calculators/',
 		'/patients/patient-id',
+		'/patients/new',
 		'/onboarding',
 		'/onboarding/'
 	])('includes %s', (path) => {

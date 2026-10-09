@@ -1,12 +1,13 @@
 // src/lib/features/patient/patientWorkspace.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPatient, listAccessiblePatients } = vi.hoisted(() => ({
+const { createPatient, getPatient, listAccessiblePatients } = vi.hoisted(() => ({
+	createPatient: vi.fn(),
 	getPatient: vi.fn(),
 	listAccessiblePatients: vi.fn()
 }));
 
-vi.mock('./patientApi.js', () => ({ getPatient, listAccessiblePatients }));
+vi.mock('./patientApi.js', () => ({ createPatient, getPatient, listAccessiblePatients }));
 
 import { patientWorkspace } from './patientWorkspace.svelte.js';
 import type { AccessiblePatient, Patient } from './types.js';
@@ -30,8 +31,71 @@ const patient = (id: string, fullName: string): Patient => ({
 
 beforeEach(() => {
 	patientWorkspace.clear();
+	createPatient.mockReset();
 	getPatient.mockReset();
 	listAccessiblePatients.mockReset();
+});
+
+describe('patientWorkspace creation', () => {
+	const input = {
+		full_name: 'Ana Sonnda',
+		birth_date: '1990-04-12',
+		cpf: '52998224725',
+		gender: 'FEMALE',
+		race: 'MIXED',
+		relation_type: 'family'
+	};
+
+	it('returns the new id and invalidates the cached list without losing the search', async () => {
+		listAccessiblePatients.mockResolvedValue({
+			data: {
+				patients: [accessiblePatient('old-patient', 'Pessoa antiga')],
+				total: 1,
+				limit: 100,
+				offset: 0
+			}
+		});
+		await patientWorkspace.ensureList('token', 'account-a');
+		patientWorkspace.query = 'ana';
+		createPatient.mockResolvedValue({ data: { id: 'new-patient' } });
+
+		const id = await patientWorkspace.create('token', 'account-a', input);
+
+		expect(createPatient).toHaveBeenCalledWith('token', input);
+		expect(id).toBe('new-patient');
+		expect(patientWorkspace.listStatus).toBe('idle');
+		expect(patientWorkspace.patients).toEqual([]);
+		expect(patientWorkspace.query).toBe('ana');
+		expect(patientWorkspace.createProblem).toBeNull();
+	});
+
+	it('preserves the public conflict returned by the API', async () => {
+		createPatient.mockResolvedValue({
+			error: { type: 'about:blank', title: 'Paciente já cadastrado', status: 409 }
+		});
+
+		const id = await patientWorkspace.create('token', 'account-a', input);
+
+		expect(id).toBeNull();
+		expect(patientWorkspace.createProblem?.status).toBe(409);
+		expect(patientWorkspace.creating).toBe(false);
+	});
+
+	it('ignores a delayed creation response after changing accounts', async () => {
+		let resolveCreation!: (value: unknown) => void;
+		createPatient.mockReturnValue(new Promise((resolve) => (resolveCreation = resolve)));
+		const creation = patientWorkspace.create('old-token', 'account-a', input);
+
+		listAccessiblePatients.mockResolvedValue({
+			data: { patients: [], total: 0, limit: 100, offset: 0 }
+		});
+		await patientWorkspace.reloadList('new-token', 'account-b');
+		resolveCreation({ data: { id: 'old-account-patient' } });
+
+		expect(await creation).toBeNull();
+		expect(patientWorkspace.accountId).toBe('account-b');
+		expect(patientWorkspace.listStatus).toBe('ready');
+	});
 });
 
 describe('patientWorkspace list', () => {

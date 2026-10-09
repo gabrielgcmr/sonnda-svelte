@@ -1,5 +1,6 @@
 // src/lib/features/patient/patientApi.ts
 import { apiClient } from '#lib/api/client.js';
+import type { CreatePatientInput } from './types.js';
 
 function authorizationHeaders(accessToken: string) {
 	return { Authorization: `Bearer ${accessToken}` };
@@ -16,5 +17,12 @@ export function getPatient(accessToken: string, patientId: string) {
 	return apiClient.GET('/patients/{patientId}', {
 		headers: authorizationHeaders(accessToken),
 		params: { path: { patientId } }
+	});
+}
+
+export function createPatient(accessToken: string, input: CreatePatientInput) {
+	return apiClient.POST('/patients', {
+		headers: authorizationHeaders(accessToken),
+		body: input
 	});
 }

@@ -1,6 +1,12 @@
 // src/lib/features/patient/patientWorkspace.svelte.ts
-import { getPatient, listAccessiblePatients } from './patientApi.js';
-import type { AccessiblePatient, Patient, PatientLoadStatus, PatientProblem } from './types.js';
+import { createPatient, getPatient, listAccessiblePatients } from './patientApi.js';
+import type {
+	AccessiblePatient,
+	CreatePatientInput,
+	Patient,
+	PatientLoadStatus,
+	PatientProblem
+} from './types.js';
 
 export const PATIENT_PAGE_SIZE = 100;
 
@@ -29,9 +35,12 @@ class PatientWorkspace {
 	selectedPatient = $state.raw<Patient | null>(null);
 	patientStatus = $state<PatientLoadStatus>('idle');
 	patientProblem = $state.raw<PatientProblem | null>(null);
+	creating = $state(false);
+	createProblem = $state.raw<PatientProblem | null>(null);
 
 	#listRequestVersion = 0;
 	#patientRequestVersion = 0;
+	#createRequestVersion = 0;
 
 	get filteredPatients() {
 		const normalizedQuery = normalizePatientName(this.query);
@@ -51,6 +60,7 @@ class PatientWorkspace {
 	clear() {
 		this.#listRequestVersion += 1;
 		this.#patientRequestVersion += 1;
+		this.#createRequestVersion += 1;
 		this.accountId = null;
 		this.patients = [];
 		this.query = '';
@@ -62,6 +72,17 @@ class PatientWorkspace {
 		this.selectedPatient = null;
 		this.patientStatus = 'idle';
 		this.patientProblem = null;
+		this.creating = false;
+		this.createProblem = null;
+	}
+
+	#invalidateList() {
+		this.#listRequestVersion += 1;
+		this.patients = [];
+		this.total = 0;
+		this.listStatus = 'idle';
+		this.listComplete = false;
+		this.listProblem = null;
 	}
 
 	ensureList(accessToken: string, accountId: string) {
@@ -169,6 +190,37 @@ class PatientWorkspace {
 			}
 			this.patientProblem = fallbackProblem('Não foi possível conectar à API');
 			this.patientStatus = 'error';
+		}
+	}
+
+	async create(accessToken: string, accountId: string, input: CreatePatientInput) {
+		this.#useAccount(accountId);
+		const requestVersion = ++this.#createRequestVersion;
+		this.creating = true;
+		this.createProblem = null;
+
+		try {
+			const { data, error } = await createPatient(accessToken, input);
+
+			if (requestVersion !== this.#createRequestVersion || this.accountId !== accountId) {
+				return null;
+			}
+
+			if (data) {
+				this.#invalidateList();
+				return data.id;
+			}
+
+			this.createProblem = error ?? fallbackProblem('Não foi possível cadastrar o paciente');
+			return null;
+		} catch {
+			if (requestVersion !== this.#createRequestVersion || this.accountId !== accountId) {
+				return null;
+			}
+			this.createProblem = fallbackProblem('Não foi possível conectar à API');
+			return null;
+		} finally {
+			if (requestVersion === this.#createRequestVersion) this.creating = false;
 		}
 	}
 }
