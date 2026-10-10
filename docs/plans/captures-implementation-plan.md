@@ -27,6 +27,8 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 #### 2.1 — Rota pública fora da área autenticada
 
+**Status: concluída.**
+
 - Criar `src/routes/capture/+page.svelte`, fora de `(app)`, em `/capture`.
 - Manter `/capture` fora de `isAuthManagedRoute`: visitante sem sessão permanece na página, e sessão autenticada não é desviada para `/home` nem `/onboarding`.
 - Ler `code` da query. Sem código e sem credencial já guardada, orientar a abrir o QR de novo, sem chamar a API.
