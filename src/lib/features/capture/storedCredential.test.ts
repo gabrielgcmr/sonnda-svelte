@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	captureCredentialStorageKey,
 	captureLinkMode,
+	clearStoredCaptureCredential,
 	readStoredCaptureCredential,
 	writeStoredCaptureCredential
 } from './storedCredential';
@@ -93,6 +94,14 @@ describe('writeStoredCaptureCredential', () => {
 			uploadToken: 'token',
 			expiresAt: '2026-10-10T18:00:00.000Z'
 		});
+
+		clearStoredCaptureCredential({
+			removeItem(key) {
+				expect(key).toBe(captureCredentialStorageKey);
+				saved = null;
+			}
+		});
+		expect(readStoredCaptureCredential(storage, now)).toBeNull();
 	});
 });
 

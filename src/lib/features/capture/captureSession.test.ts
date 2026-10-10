@@ -15,6 +15,7 @@ function memoryStorage() {
 	return {
 		getItem: (key: string) => values.get(key) ?? null,
 		setItem: (key: string, value: string) => values.set(key, value),
+		removeItem: (key: string) => values.delete(key),
 		values
 	};
 }
@@ -145,5 +146,26 @@ describe('CaptureSession', () => {
 		await first;
 
 		expect(session.credential?.sessionId).toBe('second');
+	});
+
+	it('clears the stored credential when the session is invalidated', () => {
+		const storage = memoryStorage();
+		storage.setItem(
+			captureCredentialStorageKey,
+			JSON.stringify({
+				session_id: 'session',
+				upload_token: 'token',
+				expires_at: '2999-01-01T00:00:00.000Z'
+			})
+		);
+		const session = new CaptureSession();
+		session.restore(storage);
+
+		session.invalidate(storage);
+
+		expect(session.status).toBe('error');
+		expect(session.credential).toBeNull();
+		expect(readStoredCaptureCredential(storage)).toBeNull();
+		expect(claimCaptureSession).not.toHaveBeenCalled();
 	});
 });

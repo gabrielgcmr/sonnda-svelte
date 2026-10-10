@@ -50,6 +50,8 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 #### 2.3 — Heartbeat do celular e presença do computador
 
+**Status: concluída.**
+
 - Com credencial válida, `POST /capture-sessions/{sessionId}/mobile-heartbeat` enviando `X-Capture-Token` a cada 20 segundos enquanto `document.visibilityState` for `visible`.
 - Pausar o timer com a página oculta e disparar um heartbeat imediato ao voltar ao primeiro plano (`visibilitychange`).
 - Parar o timer ao sair da página. Não apagar a credencial só porque o componente desmontou.

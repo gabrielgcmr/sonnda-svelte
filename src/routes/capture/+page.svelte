@@ -3,12 +3,14 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import { CapturePresence } from '#lib/features/capture/capturePresence.svelte.js';
 	import { CaptureSession } from '#lib/features/capture/captureSession.svelte.js';
 	import { captureLinkMode } from '#lib/features/capture/storedCredential.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import AuthShell from '#lib/ui/AuthShell.svelte';
 
 	const session = new CaptureSession();
+	const presence = new CapturePresence();
 	const code = $derived(page.url.searchParams.get('code') ?? '');
 	let storageChecked = $state(false);
 	const mode = $derived(
@@ -26,25 +28,52 @@
 		return goto(`${url.pathname}${url.search}${url.hash}`, { replace: true, reset: false });
 	}
 
-	function claimCodeFromUrl(url: { searchParams: { get(name: string): string | null } }) {
+	function endCaptureSession() {
+		session.invalidate(sessionStorage);
+		presence.stop();
+	}
+
+	function watchCredential() {
+		if (session.status === 'ready' && session.credential) {
+			presence.arm(
+				session.credential,
+				sessionStorage,
+				document.visibilityState === 'visible',
+				endCaptureSession
+			);
+			return;
+		}
+		presence.stop();
+	}
+
+	async function claimCodeFromUrl(url: { searchParams: { get(name: string): string | null } }) {
 		if (!storageChecked) {
 			session.restore(sessionStorage);
 			storageChecked = true;
 		}
 		const nextCode = url.searchParams.get('code') ?? '';
-		if (nextCode.trim() === '') return;
-		void session.claim(nextCode, sessionStorage, removeCodeFromUrl);
+		if (nextCode.trim() !== '') {
+			await session.claim(nextCode, sessionStorage, removeCodeFromUrl);
+		}
+		watchCredential();
+	}
+
+	function onVisibilityChange() {
+		presence.setVisible(document.visibilityState === 'visible');
 	}
 
 	onMount(() => {
-		claimCodeFromUrl(page.url);
+		void claimCodeFromUrl(page.url);
+		return () => presence.stop();
 	});
 
 	afterNavigate((navigation) => {
 		if (!navigation.to) return;
-		claimCodeFromUrl(navigation.to.url);
+		void claimCodeFromUrl(navigation.to.url);
 	});
 </script>
+
+<svelte:document onvisibilitychange={onVisibilityChange} />
 
 <svelte:head>
 	<title>Enviar exame | Sonnda</title>
@@ -68,6 +97,10 @@
 		</p>
 	{:else if mode === 'needs-qr'}
 		<Alert variant="warning">Abra novamente o QR no computador para enviar o exame.</Alert>
+	{:else if presence.desktopPresent === false}
+		<Alert variant="warning">Abra o Sonnda no computador. Este celular continua pareado.</Alert>
+	{:else if presence.desktopPresent === true}
+		<Alert variant="info">O computador está aberto. Este celular continua pareado.</Alert>
 	{:else}
 		<Alert variant="info">
 			Este celular já tem uma sessão de captura. Não é preciso entrar na conta.

@@ -11,6 +11,10 @@ export type StoredCaptureCredential = {
 type StorageReader = Pick<Storage, 'getItem'>;
 type CredentialStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
+export function clearStoredCaptureCredential(storage: Pick<Storage, 'removeItem'>) {
+	storage.removeItem(captureCredentialStorageKey);
+}
+
 export function writeStoredCaptureCredential(
 	storage: CredentialStorage,
 	credential: StoredCaptureCredential

@@ -1,13 +1,14 @@
 // src/lib/features/capture/captureSession.svelte.ts
 import { claimCaptureSession, type CaptureProblem } from './captureApi.js';
 import {
+	clearStoredCaptureCredential,
 	readStoredCaptureCredential,
 	writeStoredCaptureCredential,
 	type CaptureClaimStatus,
 	type StoredCaptureCredential
 } from './storedCredential.js';
 
-type CredentialStorage = Pick<Storage, 'getItem' | 'setItem'>;
+type CredentialStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 function fallbackProblem(title: string): CaptureProblem {
 	return { type: 'about:blank', title };
@@ -25,6 +26,14 @@ export class CaptureSession {
 		this.credential = readStoredCaptureCredential(storage);
 		this.problem = null;
 		this.status = this.credential ? 'ready' : 'idle';
+	}
+
+	invalidate(storage: Pick<Storage, 'removeItem'>) {
+		clearStoredCaptureCredential(storage);
+		this.credential = null;
+		this.problem = fallbackProblem('Abra novamente o QR no computador para enviar o exame.');
+		this.status = 'error';
+		this.#requestedCode = null;
 	}
 
 	async claim(code: string, storage: CredentialStorage, removeCodeFromUrl: () => Promise<void>) {

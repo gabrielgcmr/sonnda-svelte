@@ -76,3 +76,62 @@ export async function claimCaptureSession(code: string) {
 		};
 	}
 }
+
+export type MobileHeartbeatState = {
+	desktop_present: boolean;
+	mobile_present: boolean;
+	connected: boolean;
+};
+
+function isMobileHeartbeatState(value: unknown): value is MobileHeartbeatState {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	return (
+		typeof record.desktop_present === 'boolean' &&
+		typeof record.mobile_present === 'boolean' &&
+		typeof record.connected === 'boolean'
+	);
+}
+
+export function captureCredentialRejected(error: CaptureProblem | undefined) {
+	return error?.status === 401 || error?.status === 404;
+}
+
+export async function sendMobileHeartbeat(sessionId: string, uploadToken: string) {
+	try {
+		const response = await fetch(
+			`${PUBLIC_API_URL}/capture-sessions/${encodeURIComponent(sessionId)}/mobile-heartbeat`,
+			{
+				method: 'POST',
+				headers: {
+					accept: 'application/json',
+					'X-Capture-Token': uploadToken
+				}
+			}
+		);
+
+		if (!response.ok) return { data: undefined, error: await readProblem(response) };
+
+		const body: unknown = await response.json();
+		if (!isMobileHeartbeatState(body)) {
+			return {
+				data: undefined,
+				error: fallbackProblem('Não foi possível consultar o computador.', response.status)
+			};
+		}
+
+		return {
+			data: {
+				desktop_present: body.desktop_present,
+				mobile_present: body.mobile_present,
+				connected: body.connected
+			},
+			error: undefined
+		};
+	} catch {
+		return {
+			data: undefined,
+			error: fallbackProblem('Não foi possível conectar à API')
+		};
+	}
+}
