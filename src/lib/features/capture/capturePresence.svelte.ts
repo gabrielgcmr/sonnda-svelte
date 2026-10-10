@@ -70,20 +70,25 @@ export class CapturePresence {
 		this.#clearTimer();
 	}
 
-	async #beat() {
+	probe() {
+		return this.#beat();
+	}
+
+	async #beat(): Promise<'live' | 'rejected' | 'unavailable'> {
 		const credential = this.#credential;
 		const version = this.#version;
-		if (!credential || !this.#armed) return;
+		if (!credential || !this.#armed) return 'unavailable';
 
 		const { data, error } = await sendMobileHeartbeat(credential.sessionId, credential.uploadToken);
-		if (version !== this.#version || !this.#armed) return;
+		if (version !== this.#version || !this.#armed) return 'unavailable';
 
 		if (captureCredentialRejected(error)) {
 			this.#finishEnded();
-			return;
+			return 'rejected';
 		}
-		if (!data) return;
+		if (!data) return 'unavailable';
 		this.#apply(data);
+		return 'live';
 	}
 
 	#schedule() {

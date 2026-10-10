@@ -115,6 +115,20 @@ describe('CapturePresence', () => {
 		expect(readStoredCaptureCredential(storage)).toEqual(credential);
 	});
 
+	it('reports a live probe without ending the credential when the computer is away', async () => {
+		sendMobileHeartbeat.mockResolvedValue(computerAway);
+		const storage = memoryStorage();
+		const onEnded = vi.fn();
+		const presence = new CapturePresence();
+		presence.arm(credential, storage, true, onEnded);
+
+		expect(await presence.probe()).toBe('live');
+
+		expect(onEnded).not.toHaveBeenCalled();
+		expect(presence.desktopPresent).toBe(false);
+		expect(readStoredCaptureCredential(storage)).toEqual(credential);
+	});
+
 	it('clears the credential when the heartbeat rejects it', async () => {
 		sendMobileHeartbeat.mockResolvedValue({
 			error: {

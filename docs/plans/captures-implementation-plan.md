@@ -62,6 +62,8 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 #### 2.4 — Seleção, validação, envio e lista desta sessão
 
+**Status: concluída.**
+
 - Seletor com `accept="application/pdf"`. Validar no cliente, antes do `POST /captures`, conteúdo `%PDF-` e no máximo 5 MiB. Não reutilizar o limite de 10 MB do extrator.
 - Enviar um único arquivo em `multipart` no campo `file`, com `X-Capture-Token`. Mostrar progresso e, ao concluir, o nome na lista do que esta página enviou. A credencial do celular não lista `GET /captures`; a lista é só local.
 - Se `desktop_present` for falso, não enviar: pedir para abrir o Sonnda no computador e tentar de novo, mantendo o arquivo selecionado.

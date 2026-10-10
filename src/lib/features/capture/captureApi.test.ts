@@ -1,6 +1,11 @@
 // src/lib/features/capture/captureApi.test.ts
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureCredentialRejected, claimCaptureSession, sendMobileHeartbeat } from './captureApi';
+import {
+	captureCredentialRejected,
+	claimCaptureSession,
+	sendMobileHeartbeat,
+	uploadCaptureFile
+} from './captureApi';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -122,5 +127,113 @@ describe('sendMobileHeartbeat', () => {
 		expect(captureCredentialRejected({ type: 'about:blank', title: 'falha', status: 500 })).toBe(
 			false
 		);
+	});
+});
+
+describe('uploadCaptureFile', () => {
+	it('posts one PDF with the capture token and reports progress', async () => {
+		const file = new File(['%PDF-1.4'], 'hemograma.pdf', { type: 'application/pdf' });
+		const progress: number[] = [];
+		let sent:
+			| {
+					method: string;
+					url: string;
+					headers: Record<string, string>;
+					body: FormData | null;
+			  }
+			| undefined;
+		vi.stubGlobal(
+			'XMLHttpRequest',
+			class {
+				method = '';
+				url = '';
+				headers: Record<string, string> = {};
+				body: FormData | null = null;
+				status = 201;
+				responseText = JSON.stringify({
+					id: 'capture-1',
+					original_filename: 'hemograma.pdf',
+					pairing_code: 'hidden'
+				});
+				upload = {
+					onprogress: null as ((event: ProgressEvent) => void) | null
+				};
+				onload: (() => void) | null = null;
+				onerror: (() => void) | null = null;
+
+				open(method: string, url: string) {
+					this.method = method;
+					this.url = url;
+				}
+
+				setRequestHeader(name: string, value: string) {
+					this.headers[name] = value;
+				}
+
+				getResponseHeader() {
+					return 'application/json';
+				}
+
+				send(body: FormData) {
+					this.body = body;
+					sent = {
+						method: this.method,
+						url: this.url,
+						headers: { ...this.headers },
+						body: this.body
+					};
+					this.upload.onprogress?.({
+						lengthComputable: true,
+						loaded: 1,
+						total: 2
+					} as ProgressEvent);
+					this.onload?.();
+				}
+			}
+		);
+
+		const result = await uploadCaptureFile('upload-token', file, (percent) =>
+			progress.push(percent)
+		);
+
+		expect(sent?.method).toBe('POST');
+		expect(sent?.url).toBe('http://localhost:8080/captures');
+		expect(sent?.headers).toEqual({
+			accept: 'application/json',
+			'X-Capture-Token': 'upload-token'
+		});
+		expect(sent?.body?.get('file')).toBeInstanceOf(File);
+		expect((sent?.body?.get('file') as File).name).toBe('hemograma.pdf');
+		expect(progress).toEqual([50]);
+		expect(result.data).toEqual({ original_filename: 'hemograma.pdf' });
+	});
+
+	it('returns a rejected credential without a filename', async () => {
+		vi.stubGlobal(
+			'XMLHttpRequest',
+			class {
+				status = 401;
+				responseText = JSON.stringify({
+					type: 'about:blank',
+					title: 'credencial de captura inválida ou expirada',
+					status: 401
+				});
+				upload = { onprogress: null };
+				onload: (() => void) | null = null;
+				open() {}
+				setRequestHeader() {}
+				getResponseHeader() {
+					return 'application/problem+json';
+				}
+				send() {
+					this.onload?.();
+				}
+			}
+		);
+
+		const result = await uploadCaptureFile('expired-token', new File(['%PDF-1.4'], 'exam.pdf'));
+
+		expect(result.data).toBeUndefined();
+		expect(captureCredentialRejected(result.error)).toBe(true);
 	});
 });
