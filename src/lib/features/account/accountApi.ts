@@ -1,6 +1,6 @@
 // src/lib/features/account/accountApi.ts
 import { apiClient } from '#lib/api/client.js';
-import type { UpdateAccountInput } from './types';
+import type { ProfessionalActivationInput, UpdateAccountInput } from './types';
 
 function authorizationHeaders(accessToken: string) {
 	return {
@@ -16,6 +16,16 @@ export function getCurrentAccount(accessToken: string) {
 
 export function updateCurrentAccount(accessToken: string, input: UpdateAccountInput) {
 	return apiClient.PATCH('/me', {
+		headers: authorizationHeaders(accessToken),
+		body: input
+	});
+}
+
+export function activateCurrentAccountAsProfessional(
+	accessToken: string,
+	input: ProfessionalActivationInput
+) {
+	return apiClient.POST('/me/professional-activation', {
 		headers: authorizationHeaders(accessToken),
 		body: input
 	});

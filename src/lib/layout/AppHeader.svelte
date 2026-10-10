@@ -1,11 +1,12 @@
 <!-- src/lib/layout/AppHeader.svelte -->
 <script lang="ts">
 	import Button from '#lib/ui/Button.svelte';
-	import ThemeToggle from '#lib/ui/ThemeToggle.svelte';
+	import HeaderMenu from './HeaderMenu.svelte';
 
 	type Props = {
 		displayName: string;
 		careType: string;
+		showProfessionalActivation?: boolean;
 		loggingOut?: boolean;
 		returnHref?: string;
 		returnLabel?: string;
@@ -15,6 +16,7 @@
 	let {
 		displayName,
 		careType,
+		showProfessionalActivation = false,
 		loggingOut = false,
 		returnHref,
 		returnLabel = 'Voltar',
@@ -58,7 +60,7 @@
 				</p>
 				<p class="text-xs text-on-surface-muted">{careType}</p>
 			</div>
-			<ThemeToggle />
+			<HeaderMenu {showProfessionalActivation} />
 			<Button variant="secondary" size="sm" onclick={onSignOut} loading={loggingOut}>
 				{loggingOut ? 'Saindo...' : 'Sair'}
 			</Button>

@@ -18,6 +18,9 @@
 			'Usuário Sonnda'
 	);
 	const careType = $derived(accountTypeLabel(currentAccount.account?.account_type));
+	const showProfessionalActivation = $derived(
+		currentAccount.account?.account_type === 'basic_care'
+	);
 	const inPatientContext = $derived(
 		page.url.pathname === '/patients' || page.url.pathname.startsWith('/patients/')
 	);
@@ -41,6 +44,7 @@
 	<AppHeader
 		{displayName}
 		{careType}
+		{showProfessionalActivation}
 		{loggingOut}
 		returnHref={inPatientContext ? '/home' : undefined}
 		returnLabel="Meus pacientes"

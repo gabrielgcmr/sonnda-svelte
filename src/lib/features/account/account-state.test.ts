@@ -1,12 +1,15 @@
 // src/lib/features/account/account-state.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getCurrentAccount, updateCurrentAccount } = vi.hoisted(() => ({
-	getCurrentAccount: vi.fn(),
-	updateCurrentAccount: vi.fn()
-}));
+const { activateCurrentAccountAsProfessional, getCurrentAccount, updateCurrentAccount } =
+	vi.hoisted(() => ({
+		activateCurrentAccountAsProfessional: vi.fn(),
+		getCurrentAccount: vi.fn(),
+		updateCurrentAccount: vi.fn()
+	}));
 
 vi.mock('./accountApi', () => ({
+	activateCurrentAccountAsProfessional,
 	getCurrentAccount,
 	updateCurrentAccount
 }));
@@ -33,6 +36,7 @@ beforeEach(() => {
 	currentAccount.clear();
 	getCurrentAccount.mockReset();
 	updateCurrentAccount.mockReset();
+	activateCurrentAccountAsProfessional.mockReset();
 });
 
 describe('currentAccount', () => {
@@ -41,6 +45,8 @@ describe('currentAccount', () => {
 		expect(currentAccount.account).toBeNull();
 		expect(currentAccount.problem).toBeNull();
 		expect(currentAccount.saving).toBe(false);
+		expect(currentAccount.activatingProfessional).toBe(false);
+		expect(currentAccount.professionalActivationProblem).toBeNull();
 	});
 
 	it('loads the current account with the Supabase access token', async () => {
@@ -226,5 +232,46 @@ describe('currentAccount', () => {
 		expect(currentAccount.account).toBeNull();
 		expect(currentAccount.problem).toBeNull();
 		expect(currentAccount.saving).toBe(false);
+	});
+
+	it('replaces the local account after professional activation', async () => {
+		const initial = account('0199c265-34b1-7000-8000-000000000009');
+		const professional = { ...initial, account_type: 'professional' };
+		getCurrentAccount.mockResolvedValue({ data: initial });
+		activateCurrentAccountAsProfessional.mockResolvedValue({ data: professional });
+		await currentAccount.load('access-token');
+
+		const activated = await currentAccount.activateProfessional(
+			'access-token',
+			'activation-secret'
+		);
+
+		expect(activateCurrentAccountAsProfessional).toHaveBeenCalledWith('access-token', {
+			password: 'activation-secret'
+		});
+		expect(activated).toBe(true);
+		expect(currentAccount.account).toEqual(professional);
+		expect(currentAccount.activatingProfessional).toBe(false);
+		expect(currentAccount.professionalActivationProblem).toBeNull();
+	});
+
+	it('keeps the account and exposes a safe problem when professional activation is rejected', async () => {
+		const initial = account('0199c265-34b1-7000-8000-000000000010');
+		const problem = {
+			type: 'about:blank',
+			title: 'Forbidden',
+			detail: 'Senha de habilitação inválida',
+			status: 403
+		};
+		getCurrentAccount.mockResolvedValue({ data: initial });
+		activateCurrentAccountAsProfessional.mockResolvedValue({ error: problem });
+		await currentAccount.load('access-token');
+
+		const activated = await currentAccount.activateProfessional('access-token', 'wrong-secret');
+
+		expect(activated).toBe(false);
+		expect(currentAccount.account).toEqual(initial);
+		expect(currentAccount.professionalActivationProblem).toEqual(problem);
+		expect(currentAccount.activatingProfessional).toBe(false);
 	});
 });

@@ -1,5 +1,9 @@
 // src/lib/features/account/account.svelte.ts
-import { getCurrentAccount, updateCurrentAccount } from './accountApi';
+import {
+	activateCurrentAccountAsProfessional,
+	getCurrentAccount,
+	updateCurrentAccount
+} from './accountApi';
 import type { Account, AccountProblem, AccountStatus, UpdateAccountInput } from './types';
 
 function fallbackProblem(title: string): AccountProblem {
@@ -14,15 +18,25 @@ class AccountState {
 	account = $state.raw<Account | null>(null);
 	problem = $state.raw<AccountProblem | null>(null);
 	saving = $state(false);
+	activatingProfessional = $state(false);
+	professionalActivationProblem = $state.raw<AccountProblem | null>(null);
 
 	#requestVersion = 0;
+	#professionalActivationVersion = 0;
 
 	clear() {
 		this.#requestVersion += 1;
+		this.#professionalActivationVersion += 1;
 		this.status = 'idle';
 		this.account = null;
 		this.problem = null;
 		this.saving = false;
+		this.activatingProfessional = false;
+		this.professionalActivationProblem = null;
+	}
+
+	clearProfessionalActivationProblem() {
+		this.professionalActivationProblem = null;
 	}
 
 	async load(accessToken: string) {
@@ -82,6 +96,39 @@ class AccountState {
 		} finally {
 			if (requestVersion === this.#requestVersion) {
 				this.saving = false;
+			}
+		}
+	}
+
+	async activateProfessional(accessToken: string, password: string) {
+		const requestVersion = ++this.#professionalActivationVersion;
+		this.activatingProfessional = true;
+		this.professionalActivationProblem = null;
+
+		try {
+			const { data, error } = await activateCurrentAccountAsProfessional(accessToken, {
+				password
+			});
+
+			if (requestVersion !== this.#professionalActivationVersion) return false;
+
+			if (data) {
+				this.account = data;
+				this.status = 'ready';
+				return true;
+			}
+
+			this.professionalActivationProblem =
+				error ?? fallbackProblem('Não foi possível ativar o perfil profissional');
+			return false;
+		} catch {
+			if (requestVersion !== this.#professionalActivationVersion) return false;
+
+			this.professionalActivationProblem = fallbackProblem('Não foi possível conectar à API');
+			return false;
+		} finally {
+			if (requestVersion === this.#professionalActivationVersion) {
+				this.activatingProfessional = false;
 			}
 		}
 	}

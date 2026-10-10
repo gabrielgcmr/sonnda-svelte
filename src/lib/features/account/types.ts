@@ -5,3 +5,4 @@ export type AccountStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type Account = components['schemas']['AccountResponse'];
 export type AccountProblem = components['schemas']['ErrorModel'];
 export type UpdateAccountInput = components['schemas']['UpdateAccountRequest'];
+export type ProfessionalActivationInput = components['schemas']['ProfessionalActivationRequest'];
