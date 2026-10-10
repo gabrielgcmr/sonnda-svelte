@@ -1,0 +1,78 @@
+// src/lib/features/capture/captureApi.ts
+import { PUBLIC_API_URL } from '$app/env/public';
+import type { components } from '#lib/generated/openapi.js';
+
+export type CaptureProblem = components['schemas']['ErrorModel'];
+
+export type ClaimedCaptureSession = {
+	session_id: string;
+	upload_token: string;
+	expires_at: string;
+};
+
+function fallbackProblem(title: string, status?: number): CaptureProblem {
+	return { type: 'about:blank', title, status };
+}
+
+function isClaimedCaptureSession(value: unknown): value is ClaimedCaptureSession {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	return (
+		typeof record.session_id === 'string' &&
+		record.session_id.trim() !== '' &&
+		typeof record.upload_token === 'string' &&
+		record.upload_token.trim() !== '' &&
+		typeof record.expires_at === 'string' &&
+		record.expires_at.trim() !== ''
+	);
+}
+
+async function readProblem(response: Response): Promise<CaptureProblem> {
+	try {
+		const body: unknown = await response.json();
+		if (body && typeof body === 'object' && 'type' in body) {
+			return { ...(body as CaptureProblem), status: response.status };
+		}
+	} catch {
+		// The claim failure still becomes one request for a new QR.
+	}
+
+	return fallbackProblem('Abra novamente o QR no computador para enviar o exame.', response.status);
+}
+
+export async function claimCaptureSession(code: string) {
+	try {
+		const response = await fetch(`${PUBLIC_API_URL}/capture-sessions/claim`, {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify({ code })
+		});
+
+		if (!response.ok) return { data: undefined, error: await readProblem(response) };
+
+		const body: unknown = await response.json();
+		if (!isClaimedCaptureSession(body)) {
+			return {
+				data: undefined,
+				error: fallbackProblem('Não foi possível conectar este celular.', response.status)
+			};
+		}
+
+		return {
+			data: {
+				session_id: body.session_id,
+				upload_token: body.upload_token,
+				expires_at: body.expires_at
+			},
+			error: undefined
+		};
+	} catch {
+		return {
+			data: undefined,
+			error: fallbackProblem('Não foi possível conectar à API')
+		};
+	}
+}

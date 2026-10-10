@@ -38,6 +38,8 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 #### 2.2 — Reivindicação do código e credencial
 
+**Status: concluída.**
+
 - Separar cliente HTTP e estado em `src/lib/features/capture/`, no mesmo desenho das outras features: chamadas fora do módulo de runes.
 - `POST /capture-sessions/claim` com `{ "code": "..." }`, sem Bearer do Supabase.
 - Guardar somente `session_id`, `upload_token` e `expires_at` em `sessionStorage`. Não usar `localStorage` e não registrar o código nem o token.

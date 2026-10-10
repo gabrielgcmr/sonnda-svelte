@@ -9,6 +9,21 @@ export type StoredCaptureCredential = {
 };
 
 type StorageReader = Pick<Storage, 'getItem'>;
+type CredentialStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+export function writeStoredCaptureCredential(
+	storage: CredentialStorage,
+	credential: StoredCaptureCredential
+) {
+	storage.setItem(
+		captureCredentialStorageKey,
+		JSON.stringify({
+			session_id: credential.sessionId,
+			upload_token: credential.uploadToken,
+			expires_at: credential.expiresAt
+		})
+	);
+}
 
 export function readStoredCaptureCredential(
 	storage: StorageReader | null,
@@ -41,15 +56,19 @@ export function readStoredCaptureCredential(
 	return { sessionId, uploadToken, expiresAt };
 }
 
-export type CaptureLinkMode = 'checking' | 'needs-qr' | 'opened' | 'resumed';
+export type CaptureClaimStatus = 'idle' | 'claiming' | 'ready' | 'error';
+export type CaptureLinkMode = 'checking' | 'claiming' | 'needs-qr' | 'resumed';
 
 export function captureLinkMode(input: {
 	code: string;
 	storageChecked: boolean;
 	hasCredential: boolean;
+	claimStatus: CaptureClaimStatus;
 }): CaptureLinkMode {
-	if (input.code.trim() !== '') return 'opened';
 	if (!input.storageChecked) return 'checking';
-	if (input.hasCredential) return 'resumed';
+	if (input.claimStatus === 'claiming') return 'claiming';
+	if (input.claimStatus === 'error') return 'needs-qr';
+	if (input.hasCredential || input.claimStatus === 'ready') return 'resumed';
+	if (input.code.trim() !== '') return 'claiming';
 	return 'needs-qr';
 }

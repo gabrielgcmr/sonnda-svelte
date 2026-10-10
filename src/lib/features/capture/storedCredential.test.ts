@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	captureCredentialStorageKey,
 	captureLinkMode,
-	readStoredCaptureCredential
+	readStoredCaptureCredential,
+	writeStoredCaptureCredential
 } from './storedCredential';
 
 const now = new Date('2026-10-10T12:00:00.000Z');
@@ -66,19 +67,76 @@ describe('readStoredCaptureCredential', () => {
 	});
 });
 
+describe('writeStoredCaptureCredential', () => {
+	it('stores only the session, token, and expiration', () => {
+		let saved: string | null = null;
+		const storage = {
+			getItem: () => saved,
+			setItem(_key: string, value: string) {
+				saved = value;
+			}
+		};
+
+		writeStoredCaptureCredential(storage, {
+			sessionId: 'session',
+			uploadToken: 'token',
+			expiresAt: '2026-10-10T18:00:00.000Z'
+		});
+
+		expect(JSON.parse(saved ?? '')).toEqual({
+			session_id: 'session',
+			upload_token: 'token',
+			expires_at: '2026-10-10T18:00:00.000Z'
+		});
+		expect(readStoredCaptureCredential(storage, now)).toEqual({
+			sessionId: 'session',
+			uploadToken: 'token',
+			expiresAt: '2026-10-10T18:00:00.000Z'
+		});
+	});
+});
+
 describe('captureLinkMode', () => {
-	it('asks for a new QR only after confirming there is no code and no credential', () => {
-		expect(captureLinkMode({ code: '', storageChecked: false, hasCredential: false })).toBe(
-			'checking'
-		);
-		expect(captureLinkMode({ code: '   ', storageChecked: true, hasCredential: false })).toBe(
-			'needs-qr'
-		);
-		expect(captureLinkMode({ code: '', storageChecked: true, hasCredential: true })).toBe(
-			'resumed'
-		);
+	it('asks for a new QR only when there is no code, no credential, and no claim in progress', () => {
 		expect(
-			captureLinkMode({ code: ' pairing ', storageChecked: false, hasCredential: false })
-		).toBe('opened');
+			captureLinkMode({
+				code: '',
+				storageChecked: false,
+				hasCredential: false,
+				claimStatus: 'idle'
+			})
+		).toBe('checking');
+		expect(
+			captureLinkMode({
+				code: '   ',
+				storageChecked: true,
+				hasCredential: false,
+				claimStatus: 'idle'
+			})
+		).toBe('needs-qr');
+		expect(
+			captureLinkMode({
+				code: '',
+				storageChecked: true,
+				hasCredential: true,
+				claimStatus: 'ready'
+			})
+		).toBe('resumed');
+		expect(
+			captureLinkMode({
+				code: ' pairing ',
+				storageChecked: true,
+				hasCredential: false,
+				claimStatus: 'error'
+			})
+		).toBe('needs-qr');
+		expect(
+			captureLinkMode({
+				code: ' pairing ',
+				storageChecked: true,
+				hasCredential: false,
+				claimStatus: 'claiming'
+			})
+		).toBe('claiming');
 	});
 });
