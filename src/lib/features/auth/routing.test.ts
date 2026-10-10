@@ -24,6 +24,8 @@ describe('authRedirect', () => {
 		['/home/calculators', anonymous, '/login'],
 		['/patients/patient-id', anonymous, '/login'],
 		['/onboarding', anonymous, '/login'],
+		['/capture', anonymous, null],
+		['/capture/', anonymous, null],
 		['/', incomplete, '/onboarding'],
 		['/login', incomplete, '/onboarding'],
 		['/register', incomplete, '/onboarding'],
@@ -32,6 +34,8 @@ describe('authRedirect', () => {
 		['/home/calculators', incomplete, '/onboarding'],
 		['/patients/patient-id', incomplete, '/onboarding'],
 		['/onboarding', incomplete, null],
+		['/capture', incomplete, null],
+		['/capture/', incomplete, null],
 		['/', complete, '/home'],
 		['/login', complete, '/home'],
 		['/register', complete, '/home'],
@@ -39,7 +43,9 @@ describe('authRedirect', () => {
 		['/home/exams', complete, null],
 		['/home/calculators', complete, null],
 		['/patients/patient-id', complete, null],
-		['/onboarding', complete, '/home']
+		['/onboarding', complete, '/home'],
+		['/capture', complete, null],
+		['/capture/', complete, null]
 	] as const)('resolves %s for account state %#', (path, state, expected) => {
 		expect(authRedirect(path, state)).toBe(expected);
 	});
@@ -84,5 +90,12 @@ describe('isAuthManagedRoute', () => {
 		expect(isAuthManagedRoute('/health')).toBe(false);
 		expect(isAuthManagedRoute('/homeopathy')).toBe(false);
 		expect(isAuthManagedRoute('/patients-archive')).toBe(false);
+	});
+
+	it('keeps the phone capture page public, including a trailing slash', () => {
+		expect(isAuthManagedRoute('/capture')).toBe(false);
+		expect(isAuthManagedRoute('/capture/')).toBe(false);
+		expect(authRedirect('/capture', { ...complete, accountStatus: 'loading' })).toBeNull();
+		expect(authRedirect('/capture/', { ...incomplete, accountStatus: 'error' })).toBeNull();
 	});
 });

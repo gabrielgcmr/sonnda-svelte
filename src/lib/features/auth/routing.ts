@@ -26,6 +26,7 @@ function isAuthenticatedRoute(path: string) {
 
 export function isAuthManagedRoute(pathname: string) {
 	const path = normalizePath(pathname);
+	// `/capture` stays out of this list: the phone opens it from a QR without login.
 	return (
 		['/', loginPath, registerPath, onboardingPath].includes(path) || isAuthenticatedRoute(path)
 	);

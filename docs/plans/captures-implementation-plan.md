@@ -12,7 +12,7 @@ Escopo desta entrega: **somente PDF** e **somente o extrator avulso** (`/home/ex
 
 ### 1. API, pareamento e armazenamento
 
-Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `capture`). Subetapas 1.1–1.4 concluídas; 1.5.1–1.5.4 pendentes. Resumo do que o frontend consome:
+Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `capture`). **Concluída**, inclusive as subetapas 1.5.1–1.5.4. Resumo do que o frontend consome:
 
 - Sessões e capturas temporárias no PostgreSQL e no bucket privado `captures` do Supabase Storage.
 - O QR contém um código de uso único válido por 5 minutos. `POST /capture-sessions/claim` o troca por uma credencial opaca (`X-Capture-Token`), restrita a heartbeat do celular e upload, válida por até 12 horas. A API guarda só o hash.
@@ -23,10 +23,54 @@ Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `ca
 
 ### 2. Página móvel
 
-- Rota pública `/capture?code=...`, fora do grupo autenticado, que reivindica o código e guarda a credencial apenas em `sessionStorage`.
-- Seletor de arquivo com `accept="application/pdf"`, validação de tipo e de 5 MiB antes do envio, progresso e lista do que foi enviado nesta sessão.
-- Heartbeat do celular a cada 20 segundos enquanto a página estiver visível.
-- Mensagens distintas para QR expirado ou já usado, sessão encerrada no computador (credencial revogada ou vencida: pedir novo QR) e computador ausente (pedir para abrir o Sonnda no computador e tentar de novo, sem descartar o arquivo selecionado).
+Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta ordem; cada subetapa é uma revisão própria.
+
+#### 2.1 — Rota pública fora da área autenticada
+
+**Status: concluída.**
+
+- Criar `src/routes/capture/+page.svelte`, fora de `(app)`, em `/capture`.
+- Manter `/capture` fora de `isAuthManagedRoute`: visitante sem sessão permanece na página, e sessão autenticada não é desviada para `/home` nem `/onboarding`.
+- Ler `code` da query. Sem código e sem credencial já guardada, orientar a abrir o QR de novo, sem chamar a API.
+- Não usar o shell autenticado nem exigir onboarding.
+
+**Aceite:** testes de roteamento cobrem `/capture` anônimo e autenticado, com e sem barra final; a página não entra no grupo `(app)`.
+
+#### 2.2 — Reivindicação do código e credencial
+
+**Status: concluída.**
+
+- Separar cliente HTTP e estado em `src/lib/features/capture/`, no mesmo desenho das outras features: chamadas fora do módulo de runes.
+- `POST /capture-sessions/claim` com `{ "code": "..." }`, sem Bearer do Supabase.
+- Guardar somente `session_id`, `upload_token` e `expires_at` em `sessionStorage`. Não usar `localStorage` e não registrar o código nem o token.
+- Depois do sucesso, tirar `code` da URL com `goto` e `replace: true`. Recarregar restaura a credencial ainda válida. Um código novo na URL inicia outra reivindicação e substitui a credencial anterior.
+- Falha de reivindicação — código inválido, expirado, já usado, sessão revogada ou computador ausente nesse momento — chega como a mesma resposta da API (`código de pareamento inválido ou expirado`). Mostrar um único pedido de novo QR. A API não distingue esses casos na reivindicação.
+
+**Aceite:** o token não volta na URL nem no `localStorage`; recarregar não reivindica de novo o código já consumido; falha de claim não habilita o envio.
+
+#### 2.3 — Heartbeat do celular e presença do computador
+
+**Status: concluída.**
+
+- Com credencial válida, `POST /capture-sessions/{sessionId}/mobile-heartbeat` enviando `X-Capture-Token` a cada 20 segundos enquanto `document.visibilityState` for `visible`.
+- Pausar o timer com a página oculta e disparar um heartbeat imediato ao voltar ao primeiro plano (`visibilitychange`).
+- Parar o timer ao sair da página. Não apagar a credencial só porque o componente desmontou.
+- Usar `desktop_present` da resposta para o aviso de computador ausente. `connected` exige as duas presenças; ausência do computador não encerra a credencial.
+- Heartbeat com credencial inválida ou expirada limpa o `sessionStorage` e pede um novo QR.
+
+**Aceite:** aba oculta não mantém o intervalo de 20 segundos; ao voltar, a presença é atualizada na hora; `desktop_present: false` não encerra a credencial.
+
+#### 2.4 — Seleção, validação, envio e lista desta sessão
+
+**Status: concluída.**
+
+- Seletor com `accept="application/pdf"`. Validar no cliente, antes do `POST /captures`, conteúdo `%PDF-` e no máximo 5 MiB. Não reutilizar o limite de 10 MB do extrator.
+- Enviar um único arquivo em `multipart` no campo `file`, com `X-Capture-Token`. Mostrar progresso e, ao concluir, o nome na lista do que esta página enviou. A credencial do celular não lista `GET /captures`; a lista é só local.
+- Se `desktop_present` for falso, não enviar: pedir para abrir o Sonnda no computador e tentar de novo, mantendo o arquivo selecionado.
+- Se o upload responder credencial inválida, consultar o heartbeat. Heartbeat ainda válido indica computador ausente: manter o arquivo. Heartbeat com credencial inválida indica sessão encerrada: limpar a credencial e pedir novo QR.
+- Falha de rede ou erro transitório mantém o arquivo e permite tentar de novo. Arquivo vazio, acima de 5 MiB ou que não seja PDF fica só na validação local, sem request.
+
+**Aceite:** PDF válido dentro do limite segue para o upload; JPEG, PNG e arquivo maior não saem do celular; computador ausente e sessão encerrada produzem as duas mensagens acima, e só a segunda apaga a credencial.
 
 ### 3. Painel de capturas no extrator avulso
 
@@ -48,7 +92,7 @@ Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `ca
 
 ## Contratos e verificação
 
-Publicar os novos endpoints no OpenAPI da API e regenerar os tipos do frontend, sem editar o arquivo gerado manualmente. Implementar cada etapa como entrega revisável, com testes de QR expirado ou reutilizado, sessão revogada, troca de conta, logout, acesso a captura de outra conta, arquivo inválido ou acima de 5 MiB, captura expirada e reutilização da mesma captura. Verificar o fluxo completo em celular e desktop, inclusive perda de conexão durante o envio, aba do computador em segundo plano e computador ausente no momento do upload.
+Publicar os novos endpoints no OpenAPI da API e regenerar os tipos do frontend, sem editar o arquivo gerado manualmente. Implementar cada etapa, e cada subetapa da etapa 2, como entrega revisável, com testes de QR expirado ou reutilizado, sessão revogada, troca de conta, logout, acesso a captura de outra conta, arquivo inválido ou acima de 5 MiB, captura expirada e reutilização da mesma captura. Verificar o fluxo completo em celular e desktop, inclusive perda de conexão durante o envio, aba do computador em segundo plano e computador ausente no momento do upload.
 
 ## Premissas
 
