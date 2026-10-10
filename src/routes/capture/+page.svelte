@@ -23,7 +23,7 @@
 	function removeCodeFromUrl() {
 		const url = new URL(page.url.href);
 		url.searchParams.delete('code');
-		return goto(`${url.pathname}${url.search}${url.hash}`, { replaceState: true, reset: false });
+		return goto(`${url.pathname}${url.search}${url.hash}`, { replace: true, reset: false });
 	}
 
 	function claimCodeFromUrl(url: { searchParams: { get(name: string): string | null } }) {

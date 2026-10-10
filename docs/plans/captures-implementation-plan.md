@@ -43,7 +43,7 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 - Separar cliente HTTP e estado em `src/lib/features/capture/`, no mesmo desenho das outras features: chamadas fora do módulo de runes.
 - `POST /capture-sessions/claim` com `{ "code": "..." }`, sem Bearer do Supabase.
 - Guardar somente `session_id`, `upload_token` e `expires_at` em `sessionStorage`. Não usar `localStorage` e não registrar o código nem o token.
-- Depois do sucesso, tirar `code` da URL com `replaceState`. Recarregar restaura a credencial ainda válida. Um código novo na URL inicia outra reivindicação e substitui a credencial anterior.
+- Depois do sucesso, tirar `code` da URL com `goto` e `replace: true`. Recarregar restaura a credencial ainda válida. Um código novo na URL inicia outra reivindicação e substitui a credencial anterior.
 - Falha de reivindicação — código inválido, expirado, já usado, sessão revogada ou computador ausente nesse momento — chega como a mesma resposta da API (`código de pareamento inválido ou expirado`). Mostrar um único pedido de novo QR. A API não distingue esses casos na reivindicação.
 
 **Aceite:** o token não volta na URL nem no `localStorage`; recarregar não reivindica de novo o código já consumido; falha de claim não habilita o envio.
