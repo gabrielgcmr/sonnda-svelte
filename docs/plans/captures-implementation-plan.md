@@ -25,7 +25,7 @@ Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `ca
 
 - Rota pública `/capture?code=...`, fora do grupo autenticado, que reivindica o código e guarda a credencial apenas em `sessionStorage`.
 - Seletor de arquivo com `accept="application/pdf"`, validação de tipo e de 5 MiB antes do envio, progresso e lista do que foi enviado nesta sessão.
-- Heartbeat do celular a cada 20 segundos enquanto a página estiver visível.
+- Heartbeat do celular a cada 60 segundos enquanto a página estiver visível.
 - Mensagens distintas para QR expirado ou já usado, sessão encerrada no computador (credencial revogada ou vencida: pedir novo QR) e computador ausente (pedir para abrir o Sonnda no computador e tentar de novo, sem descartar o arquivo selecionado).
 
 ### 3. Painel de capturas no extrator avulso
