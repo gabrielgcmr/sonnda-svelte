@@ -92,7 +92,7 @@ Estas etapas usam o layout concluído na Parte A. Cada uma deve poder ser entreg
 
 **Aceite:** envio válido funciona; validação, falhas e resultados parciais são apresentados corretamente; nenhuma associação com paciente ou persistência é criada.
 
-### B3 — FIB-4
+### B3 — FIB-4 (Concluído; revisão visual pendente)
 
 - Implementar FIB-4 como primeira ferramenta de Cálculos clínicos.
 - Entrada manual de idade, AST/TGO, ALT/TGP e plaquetas, com unidades explícitas; apresentar o resultado junto ao formulário.
