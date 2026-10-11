@@ -10,3 +10,10 @@ export function extractStandaloneLabReport(accessToken: string, file: File) {
 		body: formData as unknown as { file: string }
 	});
 }
+
+export function extractLabReportFromCapture(accessToken: string, captureId: string) {
+	return apiClient.POST('/lab-extractions/from-capture', {
+		headers: { Authorization: `Bearer ${accessToken}` },
+		body: { capture_id: captureId }
+	});
+}

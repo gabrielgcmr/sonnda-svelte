@@ -85,6 +85,9 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 ### 4. Arrasto para extração avulsa
 
+**Status: API e estado concluídos; arrasto e botão “Extrair” pendentes do painel da etapa 3.**
+
+- Concluído: `POST /lab-extractions/from-capture` no OpenAPI e nos tipos gerados; `extractLabReportFromCapture` e `LabExtractionState.selectCapture`, que reaproveitam o fluxo de resultado, erro e nova tentativa do envio direto.
 - Usar o arrasto nativo para transmitir somente `captureId`; oferecer também um botão “Extrair” em cada item, para teclado e telas sem arrasto.
 - Adicionar na API `POST /lab-extractions/from-capture`, autenticado, com corpo `{ "capture_id": "..." }` e a mesma resposta da extração atual.
 - A API verifica propriedade, estado `available` e validade da captura, recusa MIME diferente de PDF e lê o arquivo no servidor.

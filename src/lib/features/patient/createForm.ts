@@ -168,13 +168,16 @@ export function validateCreatePatientForm(
 	if (!patientRaceOptions.some(({ value }) => value === values.race)) {
 		errors.race = 'Selecione a raça/cor.';
 	}
-	if (!patientRelationOptions.some(({ value }) => value === values.relationType)) {
+	const relationType = patientRelationOptions.find(
+		({ value }) => value === values.relationType
+	)?.value;
+	if (!relationType) {
 		errors.relationType = 'Selecione seu vínculo com o paciente.';
-	} else if (values.relationType === 'professional' && options.allowProfessional === false) {
+	} else if (relationType === 'professional' && options.allowProfessional === false) {
 		errors.relationType = 'O vínculo profissional exige uma conta do tipo Profissional.';
 	}
 
-	if (Object.keys(errors).length > 0) return { success: false, errors };
+	if (Object.keys(errors).length > 0 || !relationType) return { success: false, errors };
 
 	const input: CreatePatientInput = {
 		full_name: fullName,
@@ -182,7 +185,7 @@ export function validateCreatePatientForm(
 		cpf,
 		gender: values.gender,
 		race: values.race,
-		relation_type: values.relationType
+		relation_type: relationType
 	};
 	if (cns) input.cns = cns;
 	if (phone) input.phone = phone;

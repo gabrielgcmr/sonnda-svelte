@@ -1,12 +1,18 @@
 // src/lib/features/labextraction/labExtraction.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { extractStandaloneLabReport, validateLabPdf } = vi.hoisted(() => ({
-	extractStandaloneLabReport: vi.fn(),
-	validateLabPdf: vi.fn()
-}));
+const { extractStandaloneLabReport, extractLabReportFromCapture, validateLabPdf } = vi.hoisted(
+	() => ({
+		extractStandaloneLabReport: vi.fn(),
+		extractLabReportFromCapture: vi.fn(),
+		validateLabPdf: vi.fn()
+	})
+);
 
-vi.mock('./labExtractionApi.js', () => ({ extractStandaloneLabReport }));
+vi.mock('./labExtractionApi.js', () => ({
+	extractStandaloneLabReport,
+	extractLabReportFromCapture
+}));
 vi.mock('./fileValidation.js', () => ({ validateLabPdf }));
 
 import { LabExtractionState } from './labExtraction.svelte.js';
@@ -47,8 +53,11 @@ const result = (status = 'succeeded'): LabExtractionResult => ({
 
 const pdf = (name = 'exam.pdf') => new File(['%PDF-1.4'], name, { type: 'application/pdf' });
 
+const capture = { id: 'capture-1', original_filename: 'exame-celular.pdf' };
+
 beforeEach(() => {
 	extractStandaloneLabReport.mockReset();
+	extractLabReportFromCapture.mockReset();
 	validateLabPdf.mockReset();
 	validateLabPdf.mockResolvedValue({ valid: true });
 });
@@ -123,6 +132,52 @@ describe('LabExtractionState', () => {
 		expect(state.file).toBeNull();
 		expect(state.result).toBeNull();
 		expect(state.problem).toBeNull();
+		expect(state.status).toBe('idle');
+	});
+
+	it('extracts a capture by id without sending a file', async () => {
+		const state = new LabExtractionState();
+		await state.selectFile(pdf());
+		extractLabReportFromCapture.mockResolvedValue({ data: result() });
+
+		state.selectCapture(capture);
+		expect(state.file).toBeNull();
+		expect(await state.extract('token', 'account-a')).toBe(true);
+
+		expect(extractLabReportFromCapture).toHaveBeenCalledWith('token', 'capture-1');
+		expect(extractStandaloneLabReport).not.toHaveBeenCalled();
+		expect(state.status).toBe('ready');
+	});
+
+	it('keeps the capture selected for retry after an API problem', async () => {
+		const state = new LabExtractionState();
+		state.selectCapture(capture);
+		extractLabReportFromCapture.mockResolvedValue({
+			error: { type: 'about:blank', title: 'Captura não encontrada', status: 404 }
+		});
+
+		expect(await state.extract('token', 'account-a')).toBe(false);
+		expect(state.problem?.status).toBe(404);
+		expect(state.capture).toEqual(capture);
+	});
+
+	it('ignores a delayed capture result after another source is selected', async () => {
+		const state = new LabExtractionState();
+		state.selectCapture(capture);
+		let resolveExtraction!: (value: unknown) => void;
+		extractLabReportFromCapture.mockReturnValue(
+			new Promise((resolve) => (resolveExtraction = resolve))
+		);
+
+		const extraction = state.extract('token', 'account-a');
+		const file = pdf('local.pdf');
+		await state.selectFile(file);
+		resolveExtraction({ data: result() });
+
+		expect(await extraction).toBe(false);
+		expect(state.capture).toBeNull();
+		expect(state.file).toBe(file);
+		expect(state.result).toBeNull();
 		expect(state.status).toBe('idle');
 	});
 

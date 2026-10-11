@@ -5,7 +5,7 @@ const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 
 vi.mock('#lib/api/client.js', () => ({ apiClient: { POST: post } }));
 
-import { extractStandaloneLabReport } from './labExtractionApi.js';
+import { extractLabReportFromCapture, extractStandaloneLabReport } from './labExtractionApi.js';
 
 beforeEach(() => post.mockReset());
 
@@ -26,5 +26,16 @@ describe('labExtractionApi', () => {
 		expect(uploadedFile.type).toBe('application/pdf');
 		expect(await uploadedFile.text()).toBe('%PDF-1.4');
 		expect(options.headers).not.toHaveProperty('Content-Type');
+	});
+
+	it('sends only the capture id to extract a captured PDF', async () => {
+		post.mockResolvedValue({ data: {} });
+
+		await extractLabReportFromCapture('access-token', 'capture-1');
+
+		expect(post).toHaveBeenCalledWith('/lab-extractions/from-capture', {
+			headers: { Authorization: 'Bearer access-token' },
+			body: { capture_id: 'capture-1' }
+		});
 	});
 });

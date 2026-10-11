@@ -43,7 +43,7 @@ describe('patientWorkspace creation', () => {
 		cpf: '52998224725',
 		gender: 'FEMALE',
 		race: 'MIXED',
-		relation_type: 'family'
+		relation_type: 'family' as const
 	};
 
 	it('returns the new id and invalidates the cached list without losing the search', async () => {

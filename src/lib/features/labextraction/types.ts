@@ -6,3 +6,7 @@ export type LabExtractionProblem = components['schemas']['ErrorModel'];
 export type LabExtractionStatus = 'idle' | 'processing' | 'ready' | 'error';
 export type ExtractionWarning = components['schemas']['ExtractionWarning'];
 export type ExtractedLabReport = components['schemas']['ExtractedLabReport'];
+export type LabExtractionCapture = Pick<
+	components['schemas']['CaptureResponse'],
+	'id' | 'original_filename'
+>;

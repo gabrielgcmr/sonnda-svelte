@@ -42,7 +42,7 @@ describe('patientApi', () => {
 			cpf: '52998224725',
 			gender: 'FEMALE',
 			race: 'MIXED',
-			relation_type: 'family'
+			relation_type: 'family' as const
 		};
 		post.mockResolvedValue({ data: { id: 'patient-id' } });
 

@@ -1,7 +1,12 @@
 // src/lib/features/labextraction/labExtraction.svelte.ts
-import { extractStandaloneLabReport } from './labExtractionApi.js';
+import { extractLabReportFromCapture, extractStandaloneLabReport } from './labExtractionApi.js';
 import { validateLabPdf } from './fileValidation.js';
-import type { LabExtractionProblem, LabExtractionResult, LabExtractionStatus } from './types.js';
+import type {
+	LabExtractionCapture,
+	LabExtractionProblem,
+	LabExtractionResult,
+	LabExtractionStatus
+} from './types.js';
 
 function fallbackProblem(title: string): LabExtractionProblem {
 	return { type: 'about:blank', title };
@@ -10,6 +15,7 @@ function fallbackProblem(title: string): LabExtractionProblem {
 export class LabExtractionState {
 	accountId = $state<string | null>(null);
 	file = $state.raw<File | null>(null);
+	capture = $state.raw<LabExtractionCapture | null>(null);
 	fileError = $state<string | null>(null);
 	checkingFile = $state(false);
 	status = $state<LabExtractionStatus>('idle');
@@ -23,6 +29,7 @@ export class LabExtractionState {
 		this.#selectionVersion += 1;
 		this.#requestVersion += 1;
 		this.file = null;
+		this.capture = null;
 		this.fileError = null;
 		this.checkingFile = false;
 		this.status = 'idle';
@@ -47,7 +54,7 @@ export class LabExtractionState {
 	}
 
 	requireFile() {
-		if (this.file) return true;
+		if (this.file || this.capture) return true;
 		this.fileError = 'Selecione um arquivo PDF para continuar.';
 		return false;
 	}
@@ -56,6 +63,7 @@ export class LabExtractionState {
 		const selectionVersion = ++this.#selectionVersion;
 		this.#requestVersion += 1;
 		this.file = null;
+		this.capture = null;
 		this.fileError = null;
 		this.status = 'idle';
 		this.result = null;
@@ -82,6 +90,12 @@ export class LabExtractionState {
 		}
 	}
 
+	/** The API reads the capture on the server; only its id leaves the browser. */
+	selectCapture(capture: LabExtractionCapture) {
+		this.#resetContent();
+		this.capture = { id: capture.id, original_filename: capture.original_filename };
+	}
+
 	async extract(accessToken: string, accountId: string) {
 		if (this.accountId === null) {
 			this.accountId = accountId;
@@ -91,22 +105,28 @@ export class LabExtractionState {
 		}
 		if (!this.requireFile()) return false;
 
-		const requestVersion = ++this.#requestVersion;
 		const selectedFile = this.file;
-		if (!selectedFile) return false;
+		const selectedCapture = this.capture;
+		const request = selectedFile
+			? () => extractStandaloneLabReport(accessToken, selectedFile)
+			: selectedCapture
+				? () => extractLabReportFromCapture(accessToken, selectedCapture.id)
+				: null;
+		if (!request) return false;
+
+		const requestVersion = ++this.#requestVersion;
+		const isCurrent = () =>
+			requestVersion === this.#requestVersion &&
+			this.accountId === accountId &&
+			this.file === selectedFile &&
+			this.capture === selectedCapture;
 		this.status = 'processing';
 		this.result = null;
 		this.problem = null;
 
 		try {
-			const { data, error } = await extractStandaloneLabReport(accessToken, selectedFile);
-			if (
-				requestVersion !== this.#requestVersion ||
-				this.accountId !== accountId ||
-				this.file !== selectedFile
-			) {
-				return false;
-			}
+			const { data, error } = await request();
+			if (!isCurrent()) return false;
 
 			if (data) {
 				this.result = data;
@@ -118,13 +138,7 @@ export class LabExtractionState {
 			this.status = 'error';
 			return false;
 		} catch {
-			if (
-				requestVersion !== this.#requestVersion ||
-				this.accountId !== accountId ||
-				this.file !== selectedFile
-			) {
-				return false;
-			}
+			if (!isCurrent()) return false;
 			this.problem = fallbackProblem('Não foi possível conectar à API');
 			this.status = 'error';
 			return false;
