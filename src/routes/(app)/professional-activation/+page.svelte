@@ -1,50 +1,12 @@
 <!-- src/routes/(app)/professional-activation/+page.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
-	import { auth } from '#lib/features/auth/auth.svelte.js';
+	import ProfessionalActivationForm from '#lib/features/account/ProfessionalActivationForm.svelte';
 	import Alert from '#lib/ui/Alert.svelte';
-	import Button from '#lib/ui/Button.svelte';
 	import ButtonLink from '#lib/ui/ButtonLink.svelte';
 	import Card from '#lib/ui/Card.svelte';
-	import TextField from '#lib/ui/TextField.svelte';
-
-	let password = $state('');
-	let passwordError = $state<string | null>(null);
 
 	const isProfessional = $derived(currentAccount.account?.account_type === 'professional');
-	const activationMessage = $derived(
-		currentAccount.professionalActivationProblem?.detail ??
-			currentAccount.professionalActivationProblem?.title ??
-			'Não foi possível ativar o perfil profissional.'
-	);
-
-	onMount(() => {
-		currentAccount.clearProfessionalActivationProblem();
-		return () => currentAccount.clearProfessionalActivationProblem();
-	});
-
-	function handlePasswordInput() {
-		passwordError = null;
-		currentAccount.clearProfessionalActivationProblem();
-	}
-
-	async function handleActivation(event: SubmitEvent) {
-		event.preventDefault();
-		if (!password.trim()) {
-			passwordError = 'Informe a senha de ativação.';
-			return;
-		}
-
-		const accessToken = auth.session?.access_token;
-		if (!accessToken) {
-			passwordError = 'Sua sessão não está disponível. Entre novamente.';
-			return;
-		}
-
-		const activated = await currentAccount.activateProfessional(accessToken, password);
-		if (activated) password = '';
-	}
 </script>
 
 <svelte:head>
@@ -101,31 +63,13 @@
 					</div>
 				</div>
 
-				<form class="mt-6 space-y-4" onsubmit={handleActivation}>
-					<TextField
-						id="professional-activation-password"
-						name="professional-activation-password"
-						label="Senha de ativação"
-						type="password"
-						autocomplete="off"
-						bind:value={password}
-						error={passwordError}
-						oninput={handlePasswordInput}
-						disabled={currentAccount.activatingProfessional}
-						required
-					/>
-
-					{#if currentAccount.professionalActivationProblem}
-						<Alert variant="error">{activationMessage}</Alert>
-					{/if}
-
-					<div class="flex flex-wrap gap-3">
-						<Button type="submit" loading={currentAccount.activatingProfessional}>
-							{currentAccount.activatingProfessional ? 'Ativando...' : 'Ativar como profissional'}
-						</Button>
-						<ButtonLink href="/home" variant="secondary">Cancelar</ButtonLink>
-					</div>
-				</form>
+				<div class="mt-6">
+					<ProfessionalActivationForm>
+						{#snippet actions()}
+							<ButtonLink href="/home" variant="secondary">Cancelar</ButtonLink>
+						{/snippet}
+					</ProfessionalActivationForm>
+				</div>
 			{/if}
 		</Card>
 	</section>

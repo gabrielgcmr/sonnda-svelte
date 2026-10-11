@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
+	import ProfessionalActivationForm from '#lib/features/account/ProfessionalActivationForm.svelte';
 	import type { AccountProblem } from '#lib/features/account/types.js';
 	import { auth, signOut } from '#lib/features/auth/auth.svelte.js';
 	import {
@@ -26,6 +27,9 @@
 	let loggingOut = $state(false);
 	let logoutError = $state<string | null>(null);
 	let initializedAccountId = $state<string | null>(null);
+	let showProfessionalActivation = $state(false);
+
+	const isProfessional = $derived(currentAccount.account?.account_type === 'professional');
 
 	const today = new Date();
 	const maxBirthDate = [
@@ -68,9 +72,15 @@
 		await currentAccount.load(auth.session.access_token);
 	}
 
+	async function openProfessionalActivation() {
+		showProfessionalActivation = true;
+		await tick();
+		document.getElementById('professional-activation-password')?.focus();
+	}
+
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (!auth.session || currentAccount.saving) return;
+		if (!auth.session || currentAccount.saving || currentAccount.activatingProfessional) return;
 
 		formProblem = null;
 		errors = {};
@@ -206,89 +216,143 @@
 					<div class="mt-7 rounded-2xl bg-brand-container p-5 text-on-brand-container">
 						<p class="font-semibold">O que é obrigatório?</p>
 						<p class="mt-2 text-sm leading-6">
-							Somente seu nome completo e sua data de nascimento. CPF e telefone são opcionais.
+							Somente seu nome completo e sua data de nascimento. CPF, telefone e a ativação da
+							conta profissional são opcionais.
 						</p>
 					</div>
 				</section>
 
-				<Card class="p-5 sm:p-8">
-					<form class="space-y-5" onsubmit={handleSubmit} novalidate>
-						<TextField
-							id="onboarding-fullName"
-							name="full_name"
-							label="Nome completo"
-							bind:value={fullName}
-							autocomplete="name"
-							placeholder="Como você gostaria de ser chamado"
-							minlength={2}
-							maxlength={120}
-							required
-							error={errors.fullName}
-							disabled={currentAccount.saving}
-							oninput={() => clearFieldError('fullName')}
-						/>
-
-						<TextField
-							id="onboarding-birthDate"
-							name="birth_date"
-							label="Data de nascimento"
-							type="date"
-							bind:value={birthDate}
-							autocomplete="bday"
-							max={maxBirthDate}
-							required
-							error={errors.birthDate}
-							disabled={currentAccount.saving}
-							oninput={() => clearFieldError('birthDate')}
-						/>
-
-						<div class="grid gap-5 sm:grid-cols-2">
+				<div class="space-y-6">
+					<Card class="p-5 sm:p-8">
+						<form class="space-y-5" onsubmit={handleSubmit} novalidate>
 							<TextField
-								id="onboarding-cpf"
-								name="cpf"
-								label="CPF (opcional)"
-								bind:value={cpf}
-								inputmode="numeric"
-								placeholder="000.000.000-00"
-								helper="Somente 11 dígitos quando preenchido."
-								error={errors.cpf}
+								id="onboarding-fullName"
+								name="full_name"
+								label="Nome completo"
+								bind:value={fullName}
+								autocomplete="name"
+								placeholder="Como você gostaria de ser chamado"
+								minlength={2}
+								maxlength={120}
+								required
+								error={errors.fullName}
 								disabled={currentAccount.saving}
-								oninput={() => clearFieldError('cpf')}
+								oninput={() => clearFieldError('fullName')}
 							/>
 
 							<TextField
-								id="onboarding-phone"
-								name="phone"
-								label="Telefone (opcional)"
-								type="tel"
-								bind:value={phone}
-								autocomplete="tel"
-								inputmode="tel"
-								placeholder="+55 (11) 99999-9999"
-								helper="Entre 10 e 15 dígitos, com + opcional."
-								error={errors.phone}
+								id="onboarding-birthDate"
+								name="birth_date"
+								label="Data de nascimento"
+								type="date"
+								bind:value={birthDate}
+								autocomplete="bday"
+								max={maxBirthDate}
+								required
+								error={errors.birthDate}
 								disabled={currentAccount.saving}
-								oninput={() => clearFieldError('phone')}
+								oninput={() => clearFieldError('birthDate')}
 							/>
-						</div>
 
-						{#if formProblem}
-							<Alert variant="error">{problemMessage(formProblem)}</Alert>
-						{/if}
+							<div class="grid gap-5 sm:grid-cols-2">
+								<TextField
+									id="onboarding-cpf"
+									name="cpf"
+									label="CPF (opcional)"
+									bind:value={cpf}
+									inputmode="numeric"
+									placeholder="000.000.000-00"
+									helper="Somente 11 dígitos quando preenchido."
+									error={errors.cpf}
+									disabled={currentAccount.saving}
+									oninput={() => clearFieldError('cpf')}
+								/>
 
-						{#if logoutError}
-							<Alert variant="error">{logoutError}</Alert>
-						{/if}
+								<TextField
+									id="onboarding-phone"
+									name="phone"
+									label="Telefone (opcional)"
+									type="tel"
+									bind:value={phone}
+									autocomplete="tel"
+									inputmode="tel"
+									placeholder="+55 (11) 99999-9999"
+									helper="Entre 10 e 15 dígitos, com + opcional."
+									error={errors.phone}
+									disabled={currentAccount.saving}
+									oninput={() => clearFieldError('phone')}
+								/>
+							</div>
 
-						<Button type="submit" loading={currentAccount.saving} class="w-full">
-							{currentAccount.saving ? 'Salvando...' : 'Salvar e continuar'}
-						</Button>
+							{#if formProblem}
+								<Alert variant="error">{problemMessage(formProblem)}</Alert>
+							{/if}
 
-						<p class="text-center text-xs leading-5 text-on-surface-muted">
-							Ao continuar, seus dados serão enviados com segurança para completar seu perfil.
-						</p>
-					</form>
-				</Card>
+							{#if logoutError}
+								<Alert variant="error">{logoutError}</Alert>
+							{/if}
+
+							<Button
+								type="submit"
+								loading={currentAccount.saving}
+								disabled={currentAccount.activatingProfessional}
+								class="w-full"
+							>
+								{currentAccount.saving ? 'Salvando...' : 'Salvar e continuar'}
+							</Button>
+
+							<p class="text-center text-xs leading-5 text-on-surface-muted">
+								Ao continuar, seus dados serão enviados com segurança para completar seu perfil.
+							</p>
+						</form>
+					</Card>
+
+					<Card class="p-5 sm:p-8">
+						<section aria-labelledby="onboarding-professional-title">
+							<h2 id="onboarding-professional-title" class="text-lg font-semibold">
+								Você é profissional de saúde?
+							</h2>
+							{#if isProfessional}
+								<Alert variant="success" class="mt-4">
+									<p class="font-semibold">Conta profissional ativada.</p>
+									<p class="mt-1">
+										Conclua o cadastro acima para começar a usar os recursos profissionais.
+									</p>
+								</Alert>
+							{:else}
+								<p class="mt-2 text-sm leading-6 text-on-surface-muted">
+									Opcional. Se você recebeu a senha de ativação da administração do Sonnda, ative
+									agora a conta profissional. A ativação é permanente. Você também pode fazer isso
+									depois, pelo menu da conta.
+								</p>
+								{#if showProfessionalActivation}
+									<div class="mt-5">
+										<ProfessionalActivationForm disabled={currentAccount.saving}>
+											{#snippet actions()}
+												<Button
+													variant="secondary"
+													disabled={currentAccount.activatingProfessional}
+													onclick={() => (showProfessionalActivation = false)}
+												>
+													Agora não
+												</Button>
+											{/snippet}
+										</ProfessionalActivationForm>
+									</div>
+								{:else}
+									<Button
+										variant="secondary"
+										class="mt-5"
+										disabled={currentAccount.saving}
+										onclick={openProfessionalActivation}
+									>
+										Ativar conta profissional
+									</Button>
+								{/if}
+							{/if}
+						</section>
+					</Card>
+				</div>
 			</div>
 		{/if}
 	</div>
