@@ -6,7 +6,7 @@
 
 Permitir enviar PDFs de exames pelo celular e usá-los no extrator avulso da web. O QR abre uma página web de captura sem login; o computador exibe os PDFs recebidos num painel na página do extrator. O arrasto leva apenas o identificador da captura, e a API lê o arquivo no servidor.
 
-Escopo desta entrega: **somente PDF** e **somente o extrator avulso** (`/home/exams`). Imagens, Exames do paciente, painel global e demais destinos estão no backlog (`docs/plans/backlog.md`).
+Escopo desta entrega: **PDF e imagem na captura** e **somente o extrator avulso** (`/home/exams`). A extração avulsa continua somente para PDF. A extração de imagens está no backlog P1 (`docs/plans/backlog.md`). Exames do paciente, painel global e demais destinos também estão no backlog.
 
 ## Etapas
 
@@ -18,7 +18,7 @@ Detalhada em `sonnda-api/docs/plans/captures-api-foundation-plan.md` (branch `ca
 - O QR contém um código de uso único válido por 5 minutos. `POST /capture-sessions/claim` o troca por uma credencial opaca (`X-Capture-Token`), restrita a heartbeat do celular e upload, válida por até 12 horas. A API guarda só o hash.
 - Criar nova sessão revoga a anterior da conta; `DELETE /capture-sessions/{sessionId}` revoga a sessão e invalida a credencial do celular na hora.
 - O upload exige heartbeat do computador nos últimos 60 segundos.
-- A API aceita PDF, JPEG e PNG de até 5 MiB. Nesta entrega o frontend só oferece PDF.
+- A API aceita PDF, JPEG e PNG de até 5 MiB. O celular envia os três; a extração avulsa usa somente PDF.
 - Capturas expiram em 24 horas e podem ser excluídas manualmente.
 
 ### 2. Página móvel
@@ -68,13 +68,18 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 - Enviar um único arquivo em `multipart` no campo `file`, com `X-Capture-Token`. Mostrar progresso e, ao concluir, o nome na lista do que esta página enviou. A credencial do celular não lista `GET /captures`; a lista é só local.
 - Se `desktop_present` for falso, não enviar: pedir para abrir o Sonnda no computador e tentar de novo, mantendo o arquivo selecionado.
 - Se o upload responder credencial inválida, consultar o heartbeat. Heartbeat ainda válido indica computador ausente: manter o arquivo. Heartbeat com credencial inválida indica sessão encerrada: limpar a credencial e pedir novo QR.
-- Falha de rede ou erro transitório mantém o arquivo e permite tentar de novo. Arquivo vazio, acima de 5 MiB ou que não seja PDF fica só na validação local, sem request.
+- Falha de rede ou erro transitório mantém o arquivo e permite tentar de novo. Arquivo vazio, acima de 5 MiB ou de outro tipo fica só na validação local, sem request.
 
 **Aceite:** PDF válido dentro do limite segue para o upload; JPEG, PNG e arquivo maior não saem do celular; computador ausente e sessão encerrada produzem as duas mensagens acima, e só a segunda apaga a credencial.
 
+**Atualização na etapa 3:** JPEG e PNG válidos de até 5 MiB também seguem para o upload. Arquivo maior ou de outro tipo continua no celular. A extração avulsa permanece somente para PDF.
+
 ### 3. Painel de capturas no extrator avulso
 
-- Em `/home/exams`, painel lateral com QR, estado da conexão e lista de PDFs recebidos. Uma desconexão não oculta capturas já recebidas.
+**Status: concluída.**
+
+- Em `/home/exams`, botão com ícone de celular à direita abre um painel lateral com QR, estado da conexão e lista de PDFs e imagens recebidos. Uma desconexão não oculta capturas já recebidas; um QR novo só é gerado se a sessão ainda não foi pareada, se o código expirou ou se o usuário pede outro QR.
+- PDF da lista pode ser extraído no fluxo avulso. Imagem fica na lista sem ação de extração.
 - A sessão só é criada quando o usuário abre o painel, não ao entrar na área autenticada.
 - Heartbeat do computador:
   - a cada 20 segundos enquanto existir sessão ativa e a página estiver montada;
@@ -85,10 +90,10 @@ Página pública em que o celular reivindica o QR e envia PDFs. Entregar nesta o
 
 ### 4. Arrasto para extração avulsa
 
-**Status: API e estado concluídos; arrasto e botão “Extrair” pendentes do painel da etapa 3.**
+**Status: API, estado e botão “Extrair” concluídos; o arrasto nativo continua pendente.**
 
 - Concluído: `POST /lab-extractions/from-capture` no OpenAPI e nos tipos gerados; `extractLabReportFromCapture` e `LabExtractionState.selectCapture`, que reaproveitam o fluxo de resultado, erro e nova tentativa do envio direto.
-- Usar o arrasto nativo para transmitir somente `captureId`; oferecer também um botão “Extrair” em cada item, para teclado e telas sem arrasto.
+- O botão “Extrair” de cada PDF da lista já envia somente o `captureId`. Usar o arrasto nativo para transmitir o mesmo identificador.
 - Adicionar na API `POST /lab-extractions/from-capture`, autenticado, com corpo `{ "capture_id": "..." }` e a mesma resposta da extração atual.
 - A API verifica propriedade, estado `available` e validade da captura, recusa MIME diferente de PDF e lê o arquivo no servidor.
 - Preservar o envio direto de PDF já existente. O resultado continua sem associação a paciente; a captura original permanece disponível até exclusão ou expiração.

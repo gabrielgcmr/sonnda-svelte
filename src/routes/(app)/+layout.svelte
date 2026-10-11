@@ -5,6 +5,7 @@
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { accountTypeLabel } from '#lib/features/account/presentation.js';
 	import { auth, signOut } from '#lib/features/auth/auth.svelte.js';
+	import { revokeDesktopCaptureForSignOut } from '#lib/features/capture/desktopCapture.svelte.js';
 	import AppHeader from '#lib/layout/AppHeader.svelte';
 	import Alert from '#lib/ui/Alert.svelte';
 
@@ -30,6 +31,7 @@
 		loggingOut = true;
 
 		try {
+			await revokeDesktopCaptureForSignOut(auth.session?.access_token ?? null);
 			await signOut();
 			await goto('/login');
 		} catch {

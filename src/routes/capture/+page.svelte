@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { CapturePresence } from '#lib/features/capture/capturePresence.svelte.js';
-	import { capturePdfIssueMessage } from '#lib/features/capture/capturePdf.js';
+	import { captureFileIssueMessage } from '#lib/features/capture/captureFile.js';
 	import { CaptureSession } from '#lib/features/capture/captureSession.svelte.js';
 	import { CaptureUpload } from '#lib/features/capture/captureUpload.svelte.js';
 	import { captureLinkMode } from '#lib/features/capture/storedCredential.js';
@@ -99,17 +99,17 @@
 	<title>Enviar exame | Sonnda</title>
 	<meta
 		name="description"
-		content="Envie o PDF do exame a partir do celular, sem entrar na conta."
+		content="Envie o PDF ou a imagem do exame a partir do celular, sem entrar na conta."
 	/>
 </svelte:head>
 
 <AuthShell
 	titleId="capture-title"
 	asideTitle="Envie o exame pelo celular, sem digitar no computador."
-	asideDescription="Abra o QR mostrado no Sonnda. O arquivo segue para o extrator e você não precisa entrar na conta."
+	asideDescription="Abra o QR mostrado no Sonnda. O PDF ou a imagem segue para o computador e você não precisa entrar na conta."
 	eyebrow="Captura"
 	title={mode === 'needs-qr' ? 'Abra o QR novamente' : 'Enviar exame'}
-	description="Esta página recebe o PDF a partir do QR do computador."
+	description="Esta página recebe um PDF ou uma imagem a partir do QR do computador."
 >
 	{#if mode === 'checking' || mode === 'claiming'}
 		<p role="status">
@@ -129,12 +129,12 @@
 		{/if}
 
 		<form class="mt-6" onsubmit={onSubmit}>
-			<label for="capture-file" class="block text-sm font-medium">Exame em PDF</label>
+			<label for="capture-file" class="block text-sm font-medium">PDF ou imagem</label>
 			<input
 				id="capture-file"
 				name="file"
 				type="file"
-				accept="application/pdf"
+				accept="application/pdf,image/jpeg,image/png"
 				disabled={upload.status === 'uploading'}
 				aria-invalid={upload.issue ? 'true' : undefined}
 				aria-describedby={upload.issue ? 'capture-file-error' : 'capture-file-helper'}
@@ -143,11 +143,11 @@
 			/>
 			{#if upload.issue}
 				<p id="capture-file-error" class="mt-2 text-sm text-danger">
-					{capturePdfIssueMessage(upload.issue)}
+					{captureFileIssueMessage(upload.issue)}
 				</p>
 			{:else}
 				<p id="capture-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
-					PDF com até 5 MiB. O arquivo é conferido neste celular antes do envio.
+					PDF, JPEG ou PNG com até 5 MiB. O arquivo é conferido neste celular antes do envio.
 				</p>
 			{/if}
 			{#if upload.file}
@@ -182,7 +182,7 @@
 				loading={upload.status === 'uploading'}
 				disabled={!upload.file || upload.issue !== null}
 			>
-				Enviar PDF
+				Enviar arquivo
 			</Button>
 		</form>
 

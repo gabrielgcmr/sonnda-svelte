@@ -6,6 +6,7 @@
 	import ProfessionalActivationForm from '#lib/features/account/ProfessionalActivationForm.svelte';
 	import type { AccountProblem } from '#lib/features/account/types.js';
 	import { auth, signOut } from '#lib/features/auth/auth.svelte.js';
+	import { revokeDesktopCaptureForSignOut } from '#lib/features/capture/desktopCapture.svelte.js';
 	import {
 		validateOnboardingForm,
 		type OnboardingField,
@@ -130,6 +131,7 @@
 		loggingOut = true;
 
 		try {
+			await revokeDesktopCaptureForSignOut(auth.session?.access_token ?? null);
 			await signOut();
 			await goto('/login');
 		} catch {

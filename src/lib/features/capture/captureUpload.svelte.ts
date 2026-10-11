@@ -1,6 +1,6 @@
 // src/lib/features/capture/captureUpload.svelte.ts
 import { captureCredentialRejected, uploadCaptureFile } from './captureApi.js';
-import { readCapturePdfIssue, type CapturePdfIssue } from './capturePdf.js';
+import { readCaptureFileIssue, type CaptureFileIssue } from './captureFile.js';
 
 export const captureComputerAwayMessage = 'Abra o Sonnda no computador e tente de novo.';
 export const captureUploadRetryMessage = 'Não foi possível enviar o exame. Tente de novo.';
@@ -10,7 +10,7 @@ type PresenceProbe = () => Promise<'live' | 'rejected' | 'unavailable'>;
 
 export class CaptureUpload {
 	file = $state.raw<File | null>(null);
-	issue = $state<CapturePdfIssue | null>(null);
+	issue = $state<CaptureFileIssue | null>(null);
 	notice = $state<string | null>(null);
 	progress = $state<number | null>(null);
 	status = $state<'idle' | 'uploading'>('idle');
@@ -25,7 +25,7 @@ export class CaptureUpload {
 		if (!file) return;
 
 		const version = ++this.#selectVersion;
-		const issue = await readCapturePdfIssue(file);
+		const issue = await readCaptureFileIssue(file);
 		if (version !== this.#selectVersion) return;
 		this.issue = issue;
 	}

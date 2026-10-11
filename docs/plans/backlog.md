@@ -16,6 +16,11 @@ Vulnerabilidades exploráveis, perda de dados ou falhas graves de autenticação
 
 Melhorias importantes de confiabilidade, arquitetura e manutenção.
 
+#### Extrair imagens na extração avulsa
+
+- **Justificativa:** o celular já envia JPEG e PNG para a caixa de capturas, mas o extrator avulso só aceita PDF. `POST /lab-extractions/from-capture` recusa uma captura que não seja PDF, e o painel não oferece "Extrair" para imagens.
+- **Condições para implementação:** aceitar JPEG e PNG na extração avulsa, no envio direto e a partir da captura; extrair o conteúdo da imagem; habilitar "Extrair" para esses arquivos no painel de `/home/exams`.
+
 ### P2
 
 #### Média — planejado**

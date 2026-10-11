@@ -1,8 +1,15 @@
 <!-- src/routes/(app)/home/exams/+page.svelte -->
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { auth } from '#lib/features/auth/auth.svelte.js';
+	import CaptureInboxPanel from '#lib/features/capture/CaptureInboxPanel.svelte';
+	import {
+		attachDesktopCaptureInbox,
+		DesktopCaptureInbox,
+		type InboxCapture
+	} from '#lib/features/capture/desktopCapture.svelte.js';
+	import { browserSessionStorage } from '#lib/features/capture/rememberedDesktopSession.js';
 	import LabExtractionResult from '#lib/features/labextraction/LabExtractionResult.svelte';
 	import { LabExtractionState } from '#lib/features/labextraction/labExtraction.svelte.js';
 	import {
@@ -15,16 +22,41 @@
 	import Card from '#lib/ui/Card.svelte';
 
 	const extraction = new LabExtractionState();
+	const inbox = new DesktopCaptureInbox(browserSessionStorage);
 	const accountId = $derived(currentAccount.account?.id ?? null);
 	let fileInput = $state<HTMLInputElement>();
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
 
 	$effect(() => {
+		inbox.syncAccount(accountId, auth.session?.access_token ?? null);
 		const accountChanged = extraction.bindAccount(accountId);
 		if (accountChanged && fileInput) fileInput.value = '';
 		if (accountChanged) copyState = 'idle';
 	});
+	onMount(() => {
+		const detach = attachDesktopCaptureInbox(inbox);
+		inbox.activate(document.visibilityState === 'visible');
+		return () => {
+			inbox.deactivate();
+			detach();
+		};
+	});
 	onDestroy(() => extraction.clear());
+
+	function onVisibilityChange() {
+		inbox.setVisible(document.visibilityState === 'visible');
+	}
+
+	function closeInbox() {
+		inbox.closePanel();
+		document.getElementById('capture-inbox-button')?.focus();
+	}
+
+	function extractFromCapture(capture: InboxCapture) {
+		if (fileInput) fileInput.value = '';
+		extraction.selectCapture({ id: capture.id, original_filename: capture.original_filename });
+		void runExtraction();
+	}
 
 	function problemMessage(problem: LabExtractionProblem) {
 		if (problem.status === 413) return 'O PDF ultrapassa o limite de 10 MB.';
@@ -74,9 +106,38 @@
 	<meta name="description" content="Extraia informações de exames laboratoriais." />
 </svelte:head>
 
+<svelte:document onvisibilitychange={onVisibilityChange} />
+
 <section aria-labelledby="exams-title">
-	<p class="text-sm font-semibold text-brand">Ferramentas</p>
-	<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
+	<div class="flex items-start justify-between gap-4">
+		<div>
+			<p class="text-sm font-semibold text-brand">Ferramentas</p>
+			<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
+		</div>
+		<Button
+			id="capture-inbox-button"
+			variant="secondary"
+			class="shrink-0"
+			aria-haspopup="dialog"
+			aria-expanded={inbox.panelOpen}
+			aria-controls="capture-inbox-panel"
+			onclick={() => inbox.openPanel()}
+		>
+			<svg viewBox="0 0 24 24" fill="none" class="size-5" aria-hidden="true">
+				<rect
+					x="7"
+					y="2.5"
+					width="10"
+					height="19"
+					rx="2"
+					stroke="currentColor"
+					stroke-width="1.8"
+				/>
+				<path d="M11 18.5h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+			</svg>
+			Celular
+		</Button>
+	</div>
 	<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
 		Extraia informações de um exame laboratorial sem vinculá-lo a um paciente.
 	</p>
@@ -122,6 +183,11 @@
 					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
 						<p class="truncate font-medium">{extraction.file.name}</p>
 						<p class="mt-1 text-on-surface-muted">{formatFileSize(extraction.file.size)}</p>
+					</div>
+				{:else if extraction.capture}
+					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
+						<p class="truncate font-medium">{extraction.capture.original_filename}</p>
+						<p class="mt-1 text-on-surface-muted">Recebido pelo celular</p>
 					</div>
 				{/if}
 
@@ -200,3 +266,12 @@
 		</Card>
 	</div>
 </section>
+
+{#if inbox.panelOpen}
+	<CaptureInboxPanel
+		{inbox}
+		extracting={extraction.status === 'processing'}
+		onExtract={extractFromCapture}
+		onClose={closeInbox}
+	/>
+{/if}

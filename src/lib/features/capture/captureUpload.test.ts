@@ -11,7 +11,7 @@ vi.mock('./captureApi.js', () => ({
 		error?.status === 401 || error?.status === 404
 }));
 
-import { maxCapturePdfBytes } from './capturePdf.js';
+import { maxCaptureFileBytes } from './captureFile.js';
 import {
 	CaptureUpload,
 	captureComputerAwayMessage,
@@ -25,19 +25,18 @@ beforeEach(() => {
 });
 
 describe('CaptureUpload', () => {
-	it('keeps JPEG, PNG, and oversized files on the phone', async () => {
+	it('accepts a JPEG and keeps an unsupported or oversized file on the phone', async () => {
 		const upload = new CaptureUpload();
 
 		await upload.select(
 			new File([new Uint8Array([0xff, 0xd8, 0xff])], 'foto.jpg', { type: 'image/jpeg' })
 		);
-		expect(upload.issue).toBe('not-pdf');
+		expect(upload.issue).toBeNull();
+		expect(upload.file?.name).toBe('foto.jpg');
+		await upload.select(new File(['texto'], 'nota.txt', { type: 'text/plain' }));
+		expect(upload.issue).toBe('unsupported');
 		await upload.select(
-			new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'foto.png', { type: 'image/png' })
-		);
-		expect(upload.issue).toBe('not-pdf');
-		await upload.select(
-			new File([new Uint8Array(maxCapturePdfBytes + 1)], 'grande.pdf', { type: 'application/pdf' })
+			new File([new Uint8Array(maxCaptureFileBytes + 1)], 'grande.pdf', { type: 'application/pdf' })
 		);
 		expect(upload.issue).toBe('too-large');
 
