@@ -1,25 +1,25 @@
 <!-- src/lib/features/capture/CaptureInboxPanel.svelte -->
 <script lang="ts">
 	import QRCode from 'qrcode';
-	import { formatFileSize } from '#lib/features/labextraction/presentation.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
+	import { formatFileSize } from '#lib/ui/formatFileSize.js';
+	import type { CaptureLibrary } from './captureLibrary.svelte.js';
+	import { writeCaptureDrag } from './captureDrag.js';
 	import { capturePairingUrl } from './desktopCaptureApi.js';
-	import { captureSupportsStandaloneExtraction } from './captureFile.js';
-	import type { DesktopCaptureInbox, InboxCapture } from './desktopCapture.svelte.js';
+	import type { DesktopCaptureConnection, InboxCapture } from './desktopCapture.svelte.js';
 
 	type Props = {
-		inbox: DesktopCaptureInbox;
-		extracting?: boolean;
-		onExtract: (capture: InboxCapture) => void;
+		connection: DesktopCaptureConnection;
+		library: CaptureLibrary;
 		onClose: () => void;
 	};
 
-	let { inbox, extracting = false, onExtract, onClose }: Props = $props();
+	let { connection, library, onClose }: Props = $props();
 
 	const pairingUrl = $derived(
-		inbox.pairingCode
-			? capturePairingUrl(globalThis.location?.origin ?? '', inbox.pairingCode)
+		connection.pairingCode
+			? capturePairingUrl(globalThis.location?.origin ?? '', connection.pairingCode)
 			: null
 	);
 	const drawQr = $derived.by(() => {
@@ -37,118 +37,106 @@
 		return 'Arquivo';
 	}
 
-	function onKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') onClose();
+	function startDrag(event: DragEvent, item: InboxCapture) {
+		if (!event.dataTransfer) return;
+		writeCaptureDrag(event.dataTransfer, {
+			id: item.id,
+			name: item.original_filename,
+			mimeType: item.mime_type
+		});
 	}
 </script>
 
-<svelte:window onkeydown={onKeydown} />
-
-<button
-	type="button"
-	class="fixed inset-0 z-40 bg-canvas/70"
-	aria-label="Fechar captura"
-	tabindex={-1}
-	onclick={onClose}
-></button>
-<div
-	id="capture-inbox-panel"
-	class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-surface shadow-xl"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="capture-inbox-title"
->
-	<div class="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-		<div>
-			<p class="text-sm font-semibold text-brand">Captura</p>
-			<h2 id="capture-inbox-title" class="mt-1 text-lg font-semibold">Enviar pelo celular</h2>
-		</div>
-		<Button variant="ghost" size="sm" onclick={onClose} autofocus>Fechar</Button>
+<div id="capture-inbox-panel" aria-labelledby="capture-inbox-title">
+	<div class="flex items-start justify-between gap-3">
+		<h2 id="capture-inbox-title" class="text-sm font-semibold">Enviar pelo celular</h2>
+		<Button variant="ghost" size="sm" onclick={onClose}>Fechar</Button>
 	</div>
 
-	<div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-		{#if inbox.phase === 'loading'}
+	<div class="mt-3 space-y-4">
+		{#if connection.phase === 'loading'}
 			<p role="status">Preparando a conexão...</p>
-		{:else if inbox.phase === 'error' && inbox.problem}
-			<Alert variant="error">{inbox.problem}</Alert>
-		{:else}
-			{#if inbox.mobilePresent}
-				<Alert variant="info">Celular conectado. Os arquivos enviados aparecem abaixo.</Alert>
-			{:else if pairingUrl}
-				<div class="text-center">
-					<canvas
-						{@attach drawQr}
-						class="mx-auto rounded-xl border border-border bg-white p-2"
-						aria-label="QR para conectar o celular"
-					></canvas>
-					<p class="mt-3 text-sm leading-6 text-on-surface-muted">
-						Aponte a câmera do celular para o QR. O código vale por alguns minutos.
-					</p>
-				</div>
-			{:else if inbox.claimed}
-				<Alert variant="warning">
-					O celular está desconectado. Os arquivos já recebidos continuam disponíveis.
-				</Alert>
-				<Button variant="secondary" class="w-full" onclick={() => inbox.renewPairing()}>
-					Gerar novo QR
-				</Button>
-			{/if}
+		{:else if connection.mobilePresent}
+			<Alert variant="info">Celular conectado. Os arquivos enviados aparecem abaixo.</Alert>
+		{:else if pairingUrl}
+			<div class="text-center">
+				<canvas
+					{@attach drawQr}
+					class="mx-auto rounded-xl border border-border bg-white p-2"
+					aria-label="QR para conectar o celular"
+				></canvas>
+				<p class="mt-3 text-sm leading-6 text-on-surface-muted">
+					Aponte a câmera do celular para o QR. O código vale por alguns minutos.
+				</p>
+			</div>
+		{:else if connection.claimed}
+			<Alert variant="warning">
+				O celular está desconectado. Os arquivos já recebidos continuam disponíveis.
+			</Alert>
+			<Button variant="secondary" class="w-full" onclick={() => connection.renewPairing()}>
+				Gerar novo QR
+			</Button>
+		{/if}
 
-			{#if inbox.problem}
-				<Alert variant="error">{inbox.problem}</Alert>
-			{/if}
+		{#if connection.problem}
+			<Alert variant="error">{connection.problem}</Alert>
+		{/if}
 
-			<section aria-labelledby="capture-inbox-files">
-				<h3 id="capture-inbox-files" class="text-sm font-semibold">Arquivos recebidos</h3>
-				{#if inbox.captures.length === 0}
+		<section aria-labelledby="capture-inbox-files">
+			<h3 id="capture-inbox-files" class="text-sm font-semibold">Arquivos recebidos</h3>
+			{#if library.loading && library.items.length === 0}
+				<p class="mt-2 text-sm text-on-surface-muted" role="status">Carregando arquivos...</p>
+			{:else if library.items.length === 0}
+				{#if library.problem}
+					<Alert variant="error" class="mt-3">{library.problem}</Alert>
+				{:else}
 					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
 						Nenhum PDF ou imagem disponível nesta conta.
 					</p>
-				{:else}
-					<ul class="mt-3 space-y-3">
-						{#each inbox.captures as item (item.id)}
-							<li class="rounded-xl border border-border p-3">
-								<div class="flex items-start justify-between gap-3">
-									<div class="min-w-0">
-										<p class="truncate text-sm font-medium">{item.original_filename}</p>
-										<p class="mt-1 text-sm text-on-surface-muted">
-											{kindLabel(item.mime_type)} · {formatFileSize(item.size_bytes)}
-										</p>
-									</div>
-									{#if captureSupportsStandaloneExtraction(item.mime_type)}
-										<Button
-											variant="secondary"
-											size="sm"
-											disabled={extracting}
-											onclick={() => onExtract(item)}
-										>
-											Extrair
-										</Button>
-									{/if}
-								</div>
-								{#if !captureSupportsStandaloneExtraction(item.mime_type)}
-									<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-										A extração de imagens ainda não está disponível.
-									</p>
-								{/if}
-							</li>
-						{/each}
-					</ul>
 				{/if}
-			</section>
-		{/if}
+			{:else}
+				<p class="mt-1 text-sm leading-6 text-on-surface-muted">
+					Arraste um arquivo até a ferramenta que vai usá-lo.
+				</p>
+				{#if library.problem}
+					<Alert variant="error" class="mt-3">{library.problem}</Alert>
+				{/if}
+				<ul class="mt-3 space-y-3">
+					{#each library.items as item (item.id)}
+						<li
+							draggable="true"
+							ondragstart={(event) => startDrag(event, item)}
+							class="cursor-grab rounded-xl border border-border p-3 active:cursor-grabbing"
+						>
+							<p class="truncate text-sm font-medium">{item.original_filename}</p>
+							<p class="mt-1 text-sm text-on-surface-muted">
+								{kindLabel(item.mime_type)} · {formatFileSize(item.size_bytes)}
+							</p>
+						</li>
+					{/each}
+				</ul>
+				{#if library.hasMore}
+					<Button
+						variant="secondary"
+						class="mt-4 w-full"
+						loading={library.loadingMore}
+						onclick={() => library.loadMore()}
+					>
+						Carregar mais
+					</Button>
+				{/if}
+			{/if}
+		</section>
 	</div>
 
-	{#if inbox.sessionId}
-		<div class="border-t border-border px-5 py-4">
-			<Button
-				variant="ghost"
-				class="w-full"
-				loading={inbox.ending}
-				onclick={() => inbox.endConnection({ reopen: true })}
-			>
-				Encerrar conexão
-			</Button>
-		</div>
+	{#if connection.sessionId}
+		<Button
+			variant="ghost"
+			class="mt-4 w-full"
+			loading={connection.ending}
+			onclick={() => connection.end({ reopen: true })}
+		>
+			Encerrar conexão
+		</Button>
 	{/if}
 </div>

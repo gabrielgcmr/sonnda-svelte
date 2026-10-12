@@ -19,12 +19,6 @@ export function extractionStatusPresentation(status: string): ExtractionStatusPr
 	}
 }
 
-export function formatFileSize(bytes: number) {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function formatExtractedDate(value: string | null | undefined) {
 	if (!value) return null;
 	const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

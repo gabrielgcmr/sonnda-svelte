@@ -44,3 +44,14 @@ Funcionalidades que dependem de uma decisão arquitetural futura.
 
 - **Justificativa:** a aplicação ainda usa `@sveltejs/adapter-auto`, adequado enquanto o destino de hospedagem não foi escolhido, mas o build não consegue confirmar antecipadamente o runtime de produção.
 - **Condições para implementação:** escolher o provedor de hospedagem e substituir o adapter automático pelo adapter oficial correspondente, validando variáveis de ambiente, SSR e o comando de inicialização no ambiente final.
+
+### P3 — Ampliar as ferramentas clínicas da barra global
+
+- **Justificativa:** a barra apresenta extração de atestados, extração de relatórios médicos, LME e assistência ao diagnóstico como recursos “Em breve”. Cada recurso precisa de um fluxo e contrato próprios antes de se tornar navegável.
+- **Condições para implementação:** definir entradas, resultados e vínculo com o paciente de cada ferramenta; implementar suas rotas e integrações; habilitar os itens individualmente quando estiverem funcionais. Para assistência ao diagnóstico, definir também revisão pelo profissional e limites de uso. Não ampliar automaticamente a extração laboratorial para esses documentos.
+- **Plano relacionado:** `plans/workspace-clinico.md`.
+
+### P2 — Isolar a URL da API nos testes de captura
+
+- **Justificativa:** três testes de `captureApi.test.ts` pressupõem `http://localhost:8080`, mas o módulo lê `PUBLIC_API_URL` do ambiente. Uma configuração local diferente faz a validação falhar sem mudança de comportamento.
+- **Condições para implementação:** fornecer configuração determinística no ambiente de teste ou simular o módulo de configuração. A suíte deve passar independentemente do endereço da API no `.env`, sem alterar a configuração de desenvolvimento.

@@ -103,7 +103,7 @@
 	<meta name="description" content="Cadastre um paciente e defina seu vínculo inicial." />
 </svelte:head>
 
-<main class="mx-auto w-full max-w-6xl px-6 py-8 lg:px-8">
+<main class="w-full min-w-0 py-4">
 	<section aria-labelledby="create-patient-title">
 		<p class="text-sm font-semibold text-brand">Meus pacientes</p>
 		<h1 id="create-patient-title" class="mt-2 text-3xl font-semibold tracking-tight">
@@ -113,8 +113,10 @@
 			Cadastre os dados essenciais e informe qual é o seu vínculo com o paciente.
 		</p>
 
-		<div class="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-			<Card class="p-5 sm:p-8">
+		<div
+			class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[minmax(0,1fr)_18rem]"
+		>
+			<Card class="@container/patient-form max-w-3xl min-w-0 p-5 sm:p-8">
 				<form class="space-y-6" onsubmit={handleSubmit} novalidate>
 					<section aria-labelledby="patient-profile-fields">
 						<h2 id="patient-profile-fields" class="text-lg font-semibold">Dados do paciente</h2>
@@ -133,7 +135,7 @@
 								oninput={() => clearFieldError('fullName')}
 							/>
 
-							<div class="grid gap-5 sm:grid-cols-2">
+							<div class="grid gap-5 @min-[28rem]/patient-form:grid-cols-2">
 								<TextField
 									id="patient-birthDate"
 									name="birth_date"
@@ -161,7 +163,7 @@
 								/>
 							</div>
 
-							<div class="grid gap-5 sm:grid-cols-2">
+							<div class="grid gap-5 @min-[28rem]/patient-form:grid-cols-2">
 								<SelectField
 									id="patient-gender"
 									name="gender"
@@ -186,7 +188,7 @@
 								/>
 							</div>
 
-							<div class="grid gap-5 sm:grid-cols-2">
+							<div class="grid gap-5 @min-[28rem]/patient-form:grid-cols-2">
 								<TextField
 									id="patient-cns"
 									name="cns"
@@ -243,7 +245,10 @@
 				</form>
 			</Card>
 
-			<aside class="space-y-4 lg:sticky lg:top-6" aria-label="Orientações do cadastro">
+			<aside
+				class="w-full max-w-sm space-y-4 @min-[56rem]/workspace:sticky @min-[56rem]/workspace:top-6"
+				aria-label="Orientações do cadastro"
+			>
 				<div class="rounded-2xl bg-brand-container p-5 text-on-brand-container">
 					<h2 class="font-semibold">Depois do cadastro</h2>
 					<p class="mt-2 text-sm leading-6">

@@ -31,10 +31,10 @@ export function revokeDesktopCaptureSession(accessToken: string, sessionId: stri
 	});
 }
 
-export function listInboxCaptures(accessToken: string) {
+export function listInboxCaptures(accessToken: string, query: { limit: number; offset: number }) {
 	return apiClient.GET('/captures', {
 		headers: authorization(accessToken),
-		params: { query: { limit: 100, offset: 0 } }
+		params: { query }
 	});
 }
 

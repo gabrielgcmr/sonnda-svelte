@@ -3,6 +3,7 @@
 # General
 
 - When identifying improvements, technical debt, or future features outside the scope of the current task, record them in `docs/plans/backlog.md`, including priority, justification, and implementation conditions. Do not implement these changes without an explicit request. Avoid recording duplicates.
+- Write tests only for behaviors that are really necessary. Do not add tests for incidental changes, presentation details, or cases already covered.
 
 ## Stack and SvelteKit conventions
 

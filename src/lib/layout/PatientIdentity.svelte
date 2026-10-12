@@ -25,9 +25,9 @@
 	const valueOrDash = (value: string | number | null | undefined) => value || '—';
 </script>
 
-<section class="border-b border-border bg-surface-muted" aria-labelledby="patient-name">
-	<div class="mx-auto max-w-6xl px-6 py-5 lg:px-8">
-		<div class="flex items-start justify-between gap-8">
+<section class="min-w-0 border-b border-border bg-surface-muted" aria-labelledby="patient-name">
+	<div class="min-w-0 py-5">
+		<div class="flex min-w-0 items-start justify-between gap-8">
 			<div class="min-w-0">
 				<p class="text-xs font-semibold tracking-wide text-brand uppercase">Paciente</p>
 				<h1 id="patient-name" class="mt-1 truncate text-2xl font-semibold tracking-tight">
@@ -43,7 +43,7 @@
 			{/if}
 		</div>
 
-		<dl class="mt-4 flex items-center gap-8 text-sm">
+		<dl class="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
 			<div>
 				<dt class="text-on-surface-muted">Idade</dt>
 				<dd class="mt-1 font-medium text-on-surface">
@@ -66,7 +66,9 @@
 			>
 				Outros dados do cadastro
 			</summary>
-			<dl class="mt-4 grid grid-cols-4 gap-6 text-sm">
+			<dl
+				class="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-6 text-sm"
+			>
 				<div>
 					<dt class="text-on-surface-muted">CPF</dt>
 					<dd class="mt-1 font-medium text-on-surface">{valueOrDash(cpf)}</dd>

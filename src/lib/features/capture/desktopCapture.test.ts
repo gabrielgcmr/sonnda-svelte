@@ -18,16 +18,15 @@ vi.mock('./desktopCaptureApi.js', () => ({
 }));
 
 import {
-	DesktopCaptureInbox,
+	captureLibraryPageSize,
+	captureLibraryPollIntervalMs,
+	CaptureLibrary
+} from './captureLibrary.svelte.js';
+import {
+	DesktopCaptureConnection,
 	desktopHeartbeatIntervalMs,
 	revokeDesktopCaptureForSignOut
 } from './desktopCapture.svelte.js';
-import {
-	readRememberedDesktopSession,
-	rememberedDesktopSessionKey,
-	writeRememberedDesktopSession,
-	type SessionStorageLike
-} from './rememberedDesktopSession.js';
 
 const pdfCapture = {
 	id: 'capture-1',
@@ -39,15 +38,6 @@ const pdfCapture = {
 	size_bytes: 1200,
 	status: 'available'
 };
-
-function memoryStorage(): SessionStorageLike {
-	const values = new Map<string, string>();
-	return {
-		getItem: (key) => values.get(key) ?? null,
-		setItem: (key, value) => values.set(key, value),
-		removeItem: (key) => values.delete(key)
-	};
-}
 
 function response(status: number, data?: unknown) {
 	return { data, response: { ok: status >= 200 && status < 300, status } };
@@ -74,6 +64,10 @@ function sessionState(overrides: Record<string, unknown> = {}) {
 	});
 }
 
+function page(items: unknown[], hasMore = false, offset = 0) {
+	return response(200, { items, has_more: hasMore, limit: captureLibraryPageSize, offset });
+}
+
 beforeEach(() => {
 	createSession.mockReset();
 	currentSession.mockReset();
@@ -84,7 +78,7 @@ beforeEach(() => {
 	currentSession.mockResolvedValue(response(404));
 	createSession.mockResolvedValue(createdSession());
 	heartbeat.mockResolvedValue(sessionState());
-	listCaptures.mockResolvedValue(response(200, { items: [pdfCapture] }));
+	listCaptures.mockResolvedValue(page([pdfCapture]));
 	revoke.mockResolvedValue(response(204));
 });
 
@@ -92,106 +86,111 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-async function openInbox(
-	storage = memoryStorage(),
-	now = () => Date.parse('2026-10-11T12:00:00.000Z')
-) {
-	const inbox = new DesktopCaptureInbox(storage, now);
-	inbox.syncAccount('account-a', 'token-a');
-	inbox.activate(true);
-	await inbox.openPanel();
-	await vi.advanceTimersByTimeAsync(0);
-	return inbox;
+function connection(now = () => Date.parse('2026-10-11T12:00:00.000Z')) {
+	const desktop = new DesktopCaptureConnection(now);
+	desktop.bindAccount('account-a', 'token-a');
+	desktop.activate(true);
+	return desktop;
 }
 
-describe('DesktopCaptureInbox', () => {
-	it('creates a session and shows its pairing code when the panel opens', async () => {
-		const storage = memoryStorage();
-		const inbox = await openInbox(storage);
-
-		expect(createSession).toHaveBeenCalledWith('token-a');
-		expect(inbox.pairingCode).toBe('qr-secret');
-		expect(inbox.mobilePresent).toBe(false);
-		expect(inbox.captures).toEqual([pdfCapture]);
-		expect(readRememberedDesktopSession(storage)).toEqual({
-			sessionId: 'session-1',
-			accountId: 'account-a'
-		});
+describe('DesktopCaptureConnection', () => {
+	it('does not create a session when the workspace opens', async () => {
+		connection();
+		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
+		expect(createSession).not.toHaveBeenCalled();
+		expect(currentSession).not.toHaveBeenCalled();
 	});
 
-	it('resumes a claimed session without creating a new QR', async () => {
+	it('starts the connection when captures open and keeps the heartbeat after the list closes', async () => {
+		const desktop = connection();
+		const library = new CaptureLibrary();
+		library.bindAccount('account-a', 'token-a');
+		desktop.setPanelOpen(true);
+
+		await desktop.connect();
+		await library.open();
+		expect(createSession).toHaveBeenCalledWith('token-a');
+		expect(desktop.pairingCode).toBe('qr-secret');
+
+		const beats = heartbeat.mock.calls.length;
+		const lists = listCaptures.mock.calls.length;
+		desktop.setPanelOpen(false);
+		library.close();
+		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
+
+		expect(heartbeat.mock.calls.length).toBeGreaterThan(beats);
+		expect(listCaptures.mock.calls.length).toBe(lists);
+	});
+
+	it('adopts a claimed session from the backend without creating a new QR', async () => {
 		const claimed = { claimed_at: '2026-10-11T12:00:00.000Z', mobile_present: true };
 		currentSession.mockResolvedValue(sessionState(claimed));
 		heartbeat.mockResolvedValue(sessionState(claimed));
-		const inbox = new DesktopCaptureInbox(memoryStorage());
-		inbox.syncAccount('account-a', 'token-a');
-		inbox.activate(true);
+		const desktop = connection();
+		desktop.setPanelOpen(true);
 
-		await inbox.openPanel();
+		await desktop.connect();
 
 		expect(createSession).not.toHaveBeenCalled();
-		expect(inbox.pairingCode).toBeNull();
-		expect(inbox.mobilePresent).toBe(true);
-		expect(inbox.captures).toEqual([pdfCapture]);
+		expect(desktop.pairingCode).toBeNull();
+		expect(desktop.mobilePresent).toBe(true);
 	});
 
-	it('keeps received files when the phone disconnects', async () => {
-		heartbeat.mockResolvedValue(
-			sessionState({ claimed_at: '2026-10-11T12:00:00.000Z', mobile_present: true })
-		);
-		const inbox = await openInbox();
-		expect(inbox.mobilePresent).toBe(true);
+	it('checks the connection immediately when the tab returns and stops on unmount without revoking', async () => {
+		const desktop = connection();
+		desktop.setPanelOpen(true);
+		await desktop.connect();
+		const beats = heartbeat.mock.calls.length;
 
-		heartbeat.mockResolvedValue(
-			sessionState({ claimed_at: '2026-10-11T12:00:00.000Z', mobile_present: false })
-		);
-		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
-
-		expect(inbox.mobilePresent).toBe(false);
-		expect(inbox.pairingCode).toBeNull();
-		expect(inbox.captures).toEqual([pdfCapture]);
-	});
-
-	it('pauses the heartbeat while the page is hidden and does not revoke on leave', async () => {
-		const inbox = await openInbox();
-		const callsAfterOpen = heartbeat.mock.calls.length;
-
-		inbox.setVisible(false);
-		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs * 3);
-		expect(heartbeat.mock.calls.length).toBe(callsAfterOpen);
-
-		inbox.setVisible(true);
-		await vi.advanceTimersByTimeAsync(0);
-		expect(heartbeat.mock.calls.length).toBeGreaterThan(callsAfterOpen);
-
-		inbox.deactivate();
-		const callsAfterLeave = heartbeat.mock.calls.length;
+		desktop.setVisible(false);
 		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs * 2);
-		expect(heartbeat.mock.calls.length).toBe(callsAfterLeave);
+		expect(heartbeat.mock.calls.length).toBe(beats);
+
+		desktop.setVisible(true);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(heartbeat.mock.calls.length).toBeGreaterThan(beats);
+
+		const afterReturn = heartbeat.mock.calls.length;
+		desktop.deactivate();
+		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
+		expect(heartbeat.mock.calls.length).toBe(afterReturn);
 		expect(revoke).not.toHaveBeenCalled();
 	});
 
-	it('revokes the session when the connection ends and keeps the received files', async () => {
-		const inbox = await openInbox();
+	it('revokes the session when the connection ends and opens a new QR while captures stay open', async () => {
+		const desktop = connection();
+		desktop.setPanelOpen(true);
+		await desktop.connect();
 
-		await inbox.endConnection({ reopen: true });
+		await desktop.end({ reopen: true });
 
 		expect(revoke).toHaveBeenCalledWith('token-a', 'session-1');
 		expect(createSession).toHaveBeenCalledTimes(2);
-		expect(inbox.captures).toEqual([pdfCapture]);
+		expect(desktop.sessionId).toBe('session-1');
 	});
 
-	it('revokes the previous account session before using the next account', async () => {
-		const inbox = await openInbox();
+	it('drops the previous account and ignores a heartbeat that arrives late', async () => {
+		const desktop = connection();
+		desktop.setPanelOpen(true);
+		await desktop.connect();
+		let resolveBeat: (value: unknown) => void = () => {};
+		heartbeat.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveBeat = resolve;
+				})
+		);
+		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
 
-		inbox.syncAccount('account-b', 'token-b');
-		await vi.waitFor(() => expect(revoke).toHaveBeenCalledWith('token-a', 'session-1'));
+		desktop.bindAccount('account-b', 'token-b');
+		resolveBeat(sessionState());
+		await vi.advanceTimersByTimeAsync(0);
 
-		expect(inbox.captures).toEqual([]);
-		expect(inbox.sessionId).toBeNull();
+		expect(revoke).toHaveBeenCalledWith('token-a', 'session-1');
+		expect(desktop.sessionId).toBeNull();
 	});
 
-	it('replaces an expired unpaired code while the panel stays open', async () => {
+	it('replaces an expired QR only while captures are open', async () => {
 		let now = Date.parse('2026-10-11T12:00:00.000Z');
 		const firstExpiry = new Date(now + 1_000).toISOString();
 		let replace = false;
@@ -212,26 +211,72 @@ describe('DesktopCaptureInbox', () => {
 				pairing_expires_at: sessionId === 'session-2' ? '2999-01-01T00:00:00.000Z' : firstExpiry
 			})
 		);
-		const inbox = await openInbox(memoryStorage(), () => now);
-		expect(inbox.pairingCode).toBe('qr-secret');
+		const desktop = connection(() => now);
+		desktop.setPanelOpen(true);
+		await desktop.connect();
 
+		desktop.setPanelOpen(false);
 		now += 1_000;
+		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
+		expect(desktop.sessionId).toBe('session-1');
+
+		desktop.setPanelOpen(true);
 		replace = true;
 		await vi.advanceTimersByTimeAsync(desktopHeartbeatIntervalMs);
+		expect(desktop.sessionId).toBe('session-2');
+		expect(desktop.pairingCode).toBe('qr-next');
+	});
+});
 
-		expect(inbox.sessionId).toBe('session-2');
-		expect(inbox.pairingCode).toBe('qr-next');
+describe('CaptureLibrary', () => {
+	it('keeps the loaded files when a later update fails and appends the next page', async () => {
+		const second = { ...pdfCapture, id: 'capture-2', original_filename: 'outro.pdf' };
+		listCaptures
+			.mockResolvedValueOnce(page([pdfCapture], true))
+			.mockResolvedValueOnce(response(500))
+			.mockResolvedValueOnce(page([second], false, captureLibraryPageSize));
+		const library = new CaptureLibrary();
+		library.bindAccount('account-a', 'token-a');
+
+		await library.open();
+		await vi.advanceTimersByTimeAsync(captureLibraryPollIntervalMs);
+		expect(library.items).toEqual([pdfCapture]);
+		expect(library.problem).toBe('Não foi possível atualizar os arquivos recebidos.');
+
+		await library.loadMore();
+		expect(library.items.map((item) => item.id)).toEqual(['capture-1', 'capture-2']);
+		expect(listCaptures).toHaveBeenLastCalledWith('token-a', {
+			limit: captureLibraryPageSize,
+			offset: 1
+		});
+	});
+
+	it('discards a list response from the previous account', async () => {
+		let resolveList: (value: unknown) => void = () => {};
+		listCaptures.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveList = resolve;
+				})
+		);
+		const library = new CaptureLibrary();
+		library.bindAccount('account-a', 'token-a');
+		const pending = library.open();
+
+		library.bindAccount('account-b', 'token-b');
+		resolveList(page([pdfCapture]));
+		await pending;
+
+		expect(library.items).toEqual([]);
 	});
 });
 
 describe('revokeDesktopCaptureForSignOut', () => {
-	it('revokes the remembered session when the exams page is not open', async () => {
-		const storage = memoryStorage();
-		writeRememberedDesktopSession(storage, { sessionId: 'session-9', accountId: 'account-a' });
+	it('revokes the current server session when the workspace is not mounted', async () => {
+		currentSession.mockResolvedValue(sessionState({ session_id: 'session-9' }));
 
-		await revokeDesktopCaptureForSignOut('token-a', storage);
+		await revokeDesktopCaptureForSignOut('token-a');
 
 		expect(revoke).toHaveBeenCalledWith('token-a', 'session-9');
-		expect(storage.getItem(rememberedDesktopSessionKey)).toBeNull();
 	});
 });

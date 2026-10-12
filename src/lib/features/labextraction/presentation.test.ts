@@ -1,10 +1,10 @@
 // src/lib/features/labextraction/presentation.test.ts
 import { describe, expect, it, vi } from 'vitest';
+import { formatFileSize } from '#lib/ui/formatFileSize.js';
 import {
 	copyExtractionSummary,
 	extractionStatusPresentation,
-	formatExtractedDate,
-	formatFileSize
+	formatExtractedDate
 } from './presentation.js';
 
 describe('lab extraction presentation', () => {

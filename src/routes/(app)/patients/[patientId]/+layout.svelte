@@ -62,9 +62,9 @@
 	/>
 
 	<div
-		class="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_4rem] items-start gap-6 px-6 py-8 lg:px-8"
+		class="grid min-w-0 items-start gap-6 py-8 @min-[40rem]/workspace:grid-cols-[minmax(0,1fr)_4rem]"
 	>
-		<main>
+		<main class="min-w-0">
 			{@render children()}
 		</main>
 		<PatientNavigation {patientId} {activeSection} />
@@ -75,23 +75,23 @@
 		aria-label="Carregando paciente"
 		aria-busy="true"
 	>
-		<div class="mx-auto max-w-6xl animate-pulse px-6 py-5 lg:px-8">
+		<div class="animate-pulse py-5">
 			<div class="h-3 w-20 rounded bg-border"></div>
-			<div class="mt-3 h-7 w-72 rounded bg-border"></div>
+			<div class="mt-3 h-7 w-72 max-w-full rounded bg-border"></div>
 			<div class="mt-5 h-10 max-w-xl rounded bg-border"></div>
 		</div>
 	</section>
-	<div class="mx-auto w-full max-w-6xl px-6 py-8 lg:px-8">
+	<div class="w-full min-w-0 py-8">
 		<div class="h-64 animate-pulse rounded-2xl border border-border bg-surface-muted"></div>
 	</div>
 {:else}
 	<section class="border-b border-border bg-surface-muted">
-		<div class="mx-auto max-w-6xl px-6 py-5 lg:px-8">
+		<div class="py-5">
 			<p class="text-xs font-semibold tracking-wide text-danger uppercase">Paciente indisponível</p>
 			<h1 class="mt-1 text-2xl font-semibold tracking-tight">{patientErrorTitle()}</h1>
 		</div>
 	</section>
-	<main class="mx-auto w-full max-w-6xl px-6 py-8 lg:px-8">
+	<main class="w-full min-w-0 py-8">
 		<Alert variant="error">
 			<p>A API não disponibilizou os dados deste paciente para a conta atual.</p>
 		</Alert>

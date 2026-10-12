@@ -25,8 +25,8 @@
 </script>
 
 <header class="border-b border-border bg-surface">
-	<div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4 lg:px-8">
-		<div class="flex items-center gap-5">
+	<div class="flex w-full flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-6">
+		<div class="flex shrink-0 items-center gap-5">
 			<a
 				href="/home"
 				class="rounded-md text-sm font-bold tracking-[0.22em] text-brand uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
@@ -53,7 +53,7 @@
 			{/if}
 		</div>
 
-		<div class="flex items-center gap-4">
+		<div class="ml-auto flex min-w-0 items-center gap-4">
 			<div class="min-w-0 text-right">
 				<p class="truncate text-sm font-semibold text-on-surface" title={displayName}>
 					{displayName}

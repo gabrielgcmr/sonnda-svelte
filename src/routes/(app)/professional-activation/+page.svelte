@@ -17,7 +17,7 @@
 	/>
 </svelte:head>
 
-<main class="mx-auto w-full max-w-4xl px-6 py-10 lg:px-8">
+<main class="w-full min-w-0 py-4">
 	<section aria-labelledby="professional-activation-title">
 		<p class="text-sm font-semibold text-brand">Configuração da conta</p>
 		<h1

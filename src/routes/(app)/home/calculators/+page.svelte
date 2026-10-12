@@ -28,14 +28,16 @@
 		Use calculadoras clínicas independentes do cadastro de pacientes.
 	</p>
 
-	<div class="mt-8 grid grid-cols-[minmax(0,1fr)_18rem] items-start gap-6">
-		<Card>
+	<div
+		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[minmax(0,1fr)_18rem]"
+	>
+		<Card class="max-w-2xl min-w-0">
 			{#if selectedId === 'fib4'}
 				<Fib4Calculator />
 			{/if}
 		</Card>
 
-		<aside aria-labelledby="calculator-list-title">
+		<aside class="w-full max-w-sm" aria-labelledby="calculator-list-title">
 			<Card>
 				<h2 id="calculator-list-title" class="text-lg font-semibold">Calculadoras</h2>
 				<p class="mt-1 text-sm text-on-surface-muted">Selecione o cálculo desejado.</p>

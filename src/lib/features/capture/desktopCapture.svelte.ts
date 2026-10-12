@@ -4,91 +4,61 @@ import {
 	createDesktopCaptureSession,
 	getCurrentDesktopCaptureSession,
 	heartbeatDesktopCaptureSession,
-	listInboxCaptures,
 	revokeDesktopCaptureSession
 } from './desktopCaptureApi.js';
-import {
-	browserSessionStorage,
-	clearRememberedDesktopSession,
-	readRememberedDesktopSession,
-	writeRememberedDesktopSession,
-	type SessionStorageLike
-} from './rememberedDesktopSession.js';
 
 export const desktopHeartbeatIntervalMs = 20_000;
-export const inboxPollIntervalMs = 5_000;
 
 export type InboxCapture = components['schemas']['CaptureResponse'];
 type SessionState = components['schemas']['SessionResponse'];
 
-export class DesktopCaptureInbox {
-	panelOpen = $state(false);
+export class DesktopCaptureConnection {
 	phase = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
 	sessionId = $state<string | null>(null);
 	pairingCode = $state<string | null>(null);
 	mobilePresent = $state(false);
 	claimed = $state(false);
-	captures = $state.raw<InboxCapture[]>([]);
 	problem = $state<string | null>(null);
 	ending = $state(false);
 
 	#accountId: string | null = null;
 	#accessToken: string | null = null;
-	#pageActive = false;
+	#active = false;
 	#visible = true;
+	#panelOpen = false;
+	#started = false;
 	#pairingExpiresAt: string | null = null;
 	#generation = 0;
 	#replacingCode = false;
 	#heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-	#pollTimer: ReturnType<typeof setInterval> | null = null;
 
-	constructor(
-		private readonly storage: SessionStorageLike,
-		private readonly now: () => number = Date.now
-	) {}
+	constructor(private readonly now: () => number = Date.now) {}
 
-	get accessToken() {
-		return this.#accessToken;
-	}
-
-	activate(visible: boolean) {
-		this.#pageActive = true;
-		this.#visible = visible;
-		this.#resumeRemembered();
-	}
-
-	deactivate() {
-		this.#pageActive = false;
-		this.panelOpen = false;
-		this.#stopHeartbeat();
-		this.#stopPolling();
-	}
-
-	syncAccount(accountId: string | null, accessToken: string | null) {
+	bindAccount(accountId: string | null, accessToken: string | null) {
 		if (this.#accountId === accountId) {
 			this.#accessToken = accessToken;
-			this.#resumeRemembered();
-			return;
+			return false;
 		}
 
 		const previousToken = this.#accessToken;
 		const previousSessionId = this.sessionId;
 		this.#accountId = accountId;
 		this.#accessToken = accessToken;
+		this.#discard();
 		if (previousSessionId && previousToken) {
-			void this.endConnection({
-				reopen: false,
-				accessToken: previousToken,
-				sessionId: previousSessionId,
-				clearCaptures: true
-			}).then(() => {
-				if (this.#accountId === accountId) this.#resumeRemembered();
-			});
-			return;
+			void revokeDesktopCaptureSession(previousToken, previousSessionId);
 		}
+		return true;
+	}
 
-		this.#clearLocalSession(true);
-		this.#resumeRemembered();
+	activate(visible: boolean) {
+		this.#active = true;
+		this.#visible = visible;
+	}
+
+	deactivate() {
+		this.#active = false;
+		this.#stopHeartbeat();
 	}
 
 	setVisible(visible: boolean) {
@@ -96,33 +66,37 @@ export class DesktopCaptureInbox {
 		this.#visible = visible;
 		if (!visible) {
 			this.#stopHeartbeat();
-			this.#stopPolling();
 			return;
 		}
-		this.#startHeartbeat();
-		if (!this.panelOpen) return;
-		void this.#loadCaptures();
-		this.#startPolling();
+		if (this.#started) this.#startHeartbeat();
 	}
 
-	async openPanel() {
-		this.panelOpen = true;
-		this.problem = null;
+	setPanelOpen(open: boolean) {
+		this.#panelOpen = open;
+	}
+
+	async connect() {
 		if (!this.#accessToken || !this.#accountId) {
 			this.phase = 'error';
 			this.problem = 'Entre na conta para conectar o celular.';
 			return;
 		}
 
+		this.#started = true;
+		this.problem = null;
+		if (this.sessionId && !this.#needsReplacementCode()) {
+			this.phase = 'ready';
+			this.#startHeartbeat();
+			return;
+		}
+
 		this.phase = 'loading';
 		const generation = this.#generation;
+		const accountId = this.#accountId;
 		try {
 			await this.#ensureSession();
-			if (generation !== this.#generation || !this.panelOpen) return;
-			await this.#loadCaptures();
-			if (generation !== this.#generation || !this.panelOpen) return;
+			if (generation !== this.#generation || this.#accountId !== accountId) return;
 			this.phase = 'ready';
-			this.#startPolling();
 		} catch {
 			if (generation !== this.#generation) return;
 			this.phase = 'error';
@@ -130,64 +104,66 @@ export class DesktopCaptureInbox {
 		}
 	}
 
-	closePanel() {
-		this.panelOpen = false;
-		this.#stopPolling();
-	}
-
 	async renewPairing() {
 		this.problem = null;
 		this.phase = 'loading';
+		const generation = this.#generation;
 		try {
 			await this.#createSession();
+			if (generation !== this.#generation) return;
+			this.#started = true;
 			this.phase = 'ready';
-			this.#startPolling();
 		} catch {
+			if (generation !== this.#generation) return;
 			this.phase = 'error';
 			this.problem = 'Não foi possível gerar um novo QR.';
 		}
 	}
 
-	async endConnection(
-		options: {
-			reopen?: boolean;
-			accessToken?: string | null;
-			sessionId?: string | null;
-			clearCaptures?: boolean;
-		} = {}
-	) {
-		const token = options.accessToken === undefined ? this.#accessToken : options.accessToken;
-		const sessionId = options.sessionId === undefined ? this.sessionId : options.sessionId;
+	async end(options: { reopen?: boolean } = {}) {
+		const token = this.#accessToken;
+		const sessionId = this.sessionId;
 		const reopen = options.reopen ?? false;
 		this.ending = true;
 		this.#stopHeartbeat();
-		this.#stopPolling();
-		this.#clearLocalSession(options.clearCaptures ?? false);
+		const generation = this.#discard();
 		try {
 			if (token && sessionId) {
 				const result = await revokeDesktopCaptureSession(token, sessionId);
+				if (generation !== this.#generation) return;
 				if (!result.response.ok && result.response.status !== 404) {
 					this.problem = 'Não foi possível encerrar a conexão.';
 				}
+			} else if (token && !reopen) {
+				await this.#revokeCurrent(token, generation);
 			}
-			if (reopen && this.panelOpen && this.#accessToken && this.#accountId) {
+			if (
+				reopen &&
+				this.#panelOpen &&
+				this.#accessToken &&
+				this.#accountId &&
+				generation === this.#generation
+			) {
+				this.#started = true;
 				await this.#createSession();
-				await this.#loadCaptures();
+				if (generation !== this.#generation) return;
 				this.phase = 'ready';
-				this.#startPolling();
 			}
 		} finally {
-			this.ending = false;
+			if (generation === this.#generation) this.ending = false;
 		}
 	}
 
 	async #ensureSession() {
+		const generation = this.#generation;
+		const accountId = this.#accountId;
 		if (this.sessionId && !this.#needsReplacementCode()) {
 			await this.#beat();
 			return;
 		}
 		if (!this.sessionId) {
 			const current = await getCurrentDesktopCaptureSession(this.#accessToken ?? '');
+			if (generation !== this.#generation || this.#accountId !== accountId) return;
 			if (current.response.status === 404) {
 				await this.#createSession();
 				return;
@@ -199,14 +175,17 @@ export class DesktopCaptureInbox {
 				return;
 			}
 		}
+		if (generation !== this.#generation || this.#accountId !== accountId) return;
 		await this.#createSession();
 	}
 
 	async #createSession() {
+		const generation = this.#generation;
 		const token = this.#accessToken;
 		const accountId = this.#accountId;
 		if (!token || !accountId) throw new Error('capture session account is missing');
 		const created = await createDesktopCaptureSession(token);
+		if (generation !== this.#generation || this.#accountId !== accountId) return;
 		if (!created.data) throw new Error('capture session was not created');
 		this.#applySession(created.data, created.data.pairing_code);
 		this.#startHeartbeat();
@@ -220,7 +199,11 @@ export class DesktopCaptureInbox {
 		const result = await heartbeatDesktopCaptureSession(token, sessionId);
 		if (generation !== this.#generation || this.sessionId !== sessionId) return;
 		if (result.response.status === 404) {
-			this.#clearLocalSession(false);
+			this.#discard();
+			if (this.#panelOpen && this.#accessToken && this.#accountId) {
+				this.#started = true;
+				await this.#createSession();
+			}
 			return;
 		}
 		if (!result.data) return;
@@ -229,44 +212,14 @@ export class DesktopCaptureInbox {
 		await this.#replaceExpiredCode();
 	}
 
-	async #loadCaptures() {
-		const generation = this.#generation;
-		const token = this.#accessToken;
-		if (!token) return;
-		const result = await listInboxCaptures(token);
-		if (generation !== this.#generation) return;
-		if (!result.data) {
-			this.problem = 'Não foi possível atualizar os arquivos recebidos.';
-			return;
-		}
-		this.captures = result.data.items ?? [];
-		if (this.problem === 'Não foi possível atualizar os arquivos recebidos.') this.problem = null;
-	}
-
-	#resumeRemembered() {
-		if (!this.#pageActive || !this.#accountId || !this.#accessToken || this.sessionId) return;
-		const remembered = readRememberedDesktopSession(this.storage);
-		if (!remembered || remembered.accountId !== this.#accountId) return;
-		this.sessionId = remembered.sessionId;
-		this.#startHeartbeat();
-	}
-
-	#applySession(session: SessionState, pairingCode: string | null) {
-		this.sessionId = session.session_id;
-		this.claimed = session.claimed_at !== null;
-		this.mobilePresent = session.mobile_present;
-		this.#pairingExpiresAt = session.pairing_expires_at;
-		this.pairingCode = this.claimed ? null : pairingCode;
-		if (this.#accountId) {
-			writeRememberedDesktopSession(this.storage, {
-				sessionId: session.session_id,
-				accountId: this.#accountId
-			});
-		}
+	async #revokeCurrent(token: string, generation: number) {
+		const current = await getCurrentDesktopCaptureSession(token);
+		if (generation !== this.#generation || !current.data?.session_id) return;
+		await revokeDesktopCaptureSession(token, current.data.session_id);
 	}
 
 	async #replaceExpiredCode() {
-		if (this.#replacingCode || !this.panelOpen || !this.#needsReplacementCode()) return;
+		if (this.#replacingCode || !this.#panelOpen || !this.#needsReplacementCode()) return;
 		this.#replacingCode = true;
 		try {
 			await this.#createSession();
@@ -278,38 +231,48 @@ export class DesktopCaptureInbox {
 	}
 
 	#needsReplacementCode() {
-		if (this.claimed) return false;
-		if (!this.pairingCode) return true;
-		if (!this.#pairingExpiresAt) return true;
+		if (this.claimed || !this.#panelOpen) return false;
+		if (!this.pairingCode || !this.#pairingExpiresAt) return true;
 		return Date.parse(this.#pairingExpiresAt) <= this.now();
 	}
 
-	#clearLocalSession(clearCaptures: boolean) {
+	#applySession(session: SessionState, pairingCode: string | null) {
+		this.sessionId = session.session_id;
+		this.claimed = session.claimed_at !== null;
+		this.mobilePresent = session.mobile_present;
+		this.#pairingExpiresAt = session.pairing_expires_at;
+		this.pairingCode = this.claimed ? null : pairingCode;
+	}
+
+	#discard() {
 		this.#generation += 1;
+		this.#stopHeartbeat();
 		this.sessionId = null;
 		this.pairingCode = null;
 		this.#pairingExpiresAt = null;
 		this.mobilePresent = false;
 		this.claimed = false;
-		if (clearCaptures) this.captures = [];
-		clearRememberedDesktopSession(this.storage);
+		this.#started = false;
+		this.phase = 'idle';
+		this.problem = null;
+		return this.#generation;
 	}
 
 	#startHeartbeat() {
 		this.#stopHeartbeat();
-		if (!this.#pageActive || !this.#visible || !this.sessionId || !this.#accessToken) return;
+		if (
+			!this.#active ||
+			!this.#visible ||
+			!this.#started ||
+			!this.sessionId ||
+			!this.#accessToken
+		) {
+			return;
+		}
 		void this.#beat();
 		this.#heartbeatTimer = setInterval(() => {
 			void this.#beat();
 		}, desktopHeartbeatIntervalMs);
-	}
-
-	#startPolling() {
-		this.#stopPolling();
-		if (!this.panelOpen || !this.#visible || !this.#accessToken) return;
-		this.#pollTimer = setInterval(() => {
-			void this.#loadCaptures();
-		}, inboxPollIntervalMs);
 	}
 
 	#stopHeartbeat() {
@@ -317,42 +280,16 @@ export class DesktopCaptureInbox {
 		clearInterval(this.#heartbeatTimer);
 		this.#heartbeatTimer = null;
 	}
-
-	#stopPolling() {
-		if (!this.#pollTimer) return;
-		clearInterval(this.#pollTimer);
-		this.#pollTimer = null;
-	}
 }
 
-let attachedInbox: DesktopCaptureInbox | null = null;
-
-export function attachDesktopCaptureInbox(inbox: DesktopCaptureInbox) {
-	attachedInbox = inbox;
-	return () => {
-		if (attachedInbox === inbox) attachedInbox = null;
-	};
-}
-
-export async function revokeDesktopCaptureForSignOut(
-	accessToken: string | null,
-	storage: SessionStorageLike = browserSessionStorage
-) {
+export async function revokeDesktopCaptureForSignOut(accessToken: string | null) {
+	if (!accessToken) return;
 	try {
-		if (attachedInbox) {
-			await attachedInbox.endConnection({
-				reopen: false,
-				accessToken,
-				clearCaptures: true
-			});
-			return;
-		}
-		const remembered = readRememberedDesktopSession(storage);
-		if (remembered && accessToken) {
-			await revokeDesktopCaptureSession(accessToken, remembered.sessionId);
-		}
-		clearRememberedDesktopSession(storage);
+		const current = await getCurrentDesktopCaptureSession(accessToken);
+		const sessionId = current.data?.session_id;
+		if (!sessionId) return;
+		await revokeDesktopCaptureSession(accessToken, sessionId);
 	} catch {
-		clearRememberedDesktopSession(storage);
+		// Sair da conta continua mesmo quando a captura não responde.
 	}
 }

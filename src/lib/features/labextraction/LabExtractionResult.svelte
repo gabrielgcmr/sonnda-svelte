@@ -40,7 +40,7 @@
 	);
 </script>
 
-<div aria-live="polite">
+<div class="min-w-0 [overflow-wrap:anywhere]" aria-live="polite">
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div>
 			<p class="text-sm font-semibold text-brand">Resultado</p>
@@ -76,7 +76,7 @@
 				{copyState === 'copied' ? 'Copiado' : 'Copiar resumo'}
 			</Button>
 		</div>
-		<p class="mt-3 text-sm leading-6 whitespace-pre-wrap text-on-surface">
+		<p class="mt-3 max-w-prose text-sm leading-6 whitespace-pre-wrap text-on-surface">
 			{result.summary_text || 'Nenhum resumo textual foi produzido.'}
 		</p>
 		{#if copyState === 'error'}
@@ -127,7 +127,7 @@
 						</div>
 						{#if test.items?.length}
 							<div class="overflow-x-auto">
-								<table class="w-full min-w-lg text-left text-sm">
+								<table class="w-full min-w-lg text-left text-sm [overflow-wrap:normal]">
 									<thead class="border-y border-border text-xs text-on-surface-muted">
 										<tr>
 											<th class="px-4 py-2 font-medium">Parâmetro</th>

@@ -1,62 +1,51 @@
 <!-- src/routes/(app)/home/exams/+page.svelte -->
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { auth } from '#lib/features/auth/auth.svelte.js';
-	import CaptureInboxPanel from '#lib/features/capture/CaptureInboxPanel.svelte';
+	import { captureLibraryPageSize } from '#lib/features/capture/captureLibrary.svelte.js';
 	import {
-		attachDesktopCaptureInbox,
-		DesktopCaptureInbox,
-		type InboxCapture
-	} from '#lib/features/capture/desktopCapture.svelte.js';
-	import { browserSessionStorage } from '#lib/features/capture/rememberedDesktopSession.js';
+		captureDragPresent,
+		readCaptureDrag,
+		type CaptureDrag
+	} from '#lib/features/capture/captureDrag.js';
+	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
+	import { listInboxCaptures } from '#lib/features/capture/desktopCaptureApi.js';
+	import type { InboxCapture } from '#lib/features/capture/desktopCapture.svelte.js';
 	import LabExtractionResult from '#lib/features/labextraction/LabExtractionResult.svelte';
 	import { LabExtractionState } from '#lib/features/labextraction/labExtraction.svelte.js';
-	import {
-		copyExtractionSummary,
-		formatFileSize
-	} from '#lib/features/labextraction/presentation.js';
+	import { copyExtractionSummary } from '#lib/features/labextraction/presentation.js';
 	import type { LabExtractionProblem } from '#lib/features/labextraction/types.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Card from '#lib/ui/Card.svelte';
+	import { formatFileSize } from '#lib/ui/formatFileSize.js';
+
+	const imageNotAccepted = 'Imagens ainda não são aceitas pelo extrator laboratorial.';
+	const receivedProblemMessage = 'Não foi possível consultar os arquivos recebidos.';
 
 	const extraction = new LabExtractionState();
-	const inbox = new DesktopCaptureInbox(browserSessionStorage);
 	const accountId = $derived(currentAccount.account?.id ?? null);
 	let fileInput = $state<HTMLInputElement>();
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
+	let captureNotice = $state<string | null>(null);
+	let dragOver = $state(false);
+	let receivedOpen = $state(false);
+	let receivedItems = $state.raw<InboxCapture[]>([]);
+	let receivedHasMore = $state(false);
+	let receivedLoading = $state(false);
+	let receivedLoadingMore = $state(false);
+	let receivedProblem = $state<string | null>(null);
+	let receivedGeneration = 0;
 
 	$effect(() => {
-		inbox.syncAccount(accountId, auth.session?.access_token ?? null);
 		const accountChanged = extraction.bindAccount(accountId);
-		if (accountChanged && fileInput) fileInput.value = '';
-		if (accountChanged) copyState = 'idle';
-	});
-	onMount(() => {
-		const detach = attachDesktopCaptureInbox(inbox);
-		inbox.activate(document.visibilityState === 'visible');
-		return () => {
-			inbox.deactivate();
-			detach();
-		};
+		if (!accountChanged) return;
+		if (fileInput) fileInput.value = '';
+		copyState = 'idle';
+		resetReceived();
 	});
 	onDestroy(() => extraction.clear());
-
-	function onVisibilityChange() {
-		inbox.setVisible(document.visibilityState === 'visible');
-	}
-
-	function closeInbox() {
-		inbox.closePanel();
-		document.getElementById('capture-inbox-button')?.focus();
-	}
-
-	function extractFromCapture(capture: InboxCapture) {
-		if (fileInput) fileInput.value = '';
-		extraction.selectCapture({ id: capture.id, original_filename: capture.original_filename });
-		void runExtraction();
-	}
 
 	function problemMessage(problem: LabExtractionProblem) {
 		if (problem.status === 413) return 'O PDF ultrapassa o limite de 10 MB.';
@@ -64,11 +53,125 @@
 		return problem.detail || problem.title || 'Não foi possível extrair os dados do exame.';
 	}
 
+	function resetReceived() {
+		receivedGeneration += 1;
+		receivedOpen = false;
+		receivedItems = [];
+		receivedHasMore = false;
+		receivedLoading = false;
+		receivedLoadingMore = false;
+		receivedProblem = null;
+		captureNotice = null;
+	}
+
+	function selectReceivedCapture(capture: CaptureDrag) {
+		if (!captureSupportsStandaloneExtraction(capture.mimeType)) {
+			captureNotice = imageNotAccepted;
+			return;
+		}
+		captureNotice = null;
+		if (fileInput) fileInput.value = '';
+		extraction.selectCapture({ id: capture.id, original_filename: capture.name });
+	}
+
 	async function handleFileChange(event: Event) {
 		copyState = 'idle';
+		captureNotice = null;
 		const input = event.currentTarget as HTMLInputElement;
 		const accepted = await extraction.selectFile(input.files?.[0] ?? null);
 		if (!accepted) input.value = '';
+	}
+
+	function onDragOver(event: DragEvent) {
+		const transfer = event.dataTransfer;
+		if (!transfer) return;
+		const acceptsCapture = captureDragPresent(transfer);
+		const acceptsLocalFile = transfer.types.includes('Files');
+		if (!acceptsCapture && !acceptsLocalFile) return;
+		event.preventDefault();
+		transfer.dropEffect = 'copy';
+		dragOver = true;
+	}
+
+	function onDragLeave(event: DragEvent) {
+		const next = event.relatedTarget;
+		if (
+			next instanceof Node &&
+			event.currentTarget instanceof Node &&
+			event.currentTarget.contains(next)
+		) {
+			return;
+		}
+		dragOver = false;
+	}
+
+	async function onDrop(event: DragEvent) {
+		event.preventDefault();
+		dragOver = false;
+		const transfer = event.dataTransfer;
+		const capture = readCaptureDrag(transfer);
+		if (capture) {
+			selectReceivedCapture(capture);
+			return;
+		}
+		const file = transfer?.files?.[0] ?? null;
+		if (!file) return;
+		captureNotice = null;
+		copyState = 'idle';
+		const accepted = await extraction.selectFile(file);
+		if (!accepted && fileInput) fileInput.value = '';
+	}
+
+	async function showReceived() {
+		receivedOpen = true;
+		const generation = ++receivedGeneration;
+		await fetchReceived(generation, 0, false);
+	}
+
+	function loadMoreReceived() {
+		if (!receivedHasMore || receivedLoading || receivedLoadingMore) return;
+		void fetchReceived(receivedGeneration, receivedItems.length, true);
+	}
+
+	async function fetchReceived(generation: number, offset: number, append: boolean) {
+		const token = auth.session?.access_token;
+		const account = accountId;
+		if (!token || !account) {
+			receivedProblem = 'Entre na conta para ver os arquivos recebidos.';
+			return;
+		}
+		if (append) receivedLoadingMore = true;
+		else receivedLoading = true;
+		receivedProblem = null;
+		try {
+			const result = await listInboxCaptures(token, {
+				limit: captureLibraryPageSize,
+				offset
+			});
+			if (generation !== receivedGeneration || accountId !== account) return;
+			if (!result.data) {
+				receivedProblem = receivedProblemMessage;
+				return;
+			}
+			const incoming = result.data.items ?? [];
+			receivedItems = append ? [...receivedItems, ...incoming] : incoming;
+			receivedHasMore = result.data.has_more;
+		} catch {
+			if (generation === receivedGeneration) receivedProblem = receivedProblemMessage;
+		} finally {
+			if (generation === receivedGeneration) {
+				receivedLoading = false;
+				receivedLoadingMore = false;
+			}
+		}
+	}
+
+	function chooseReceived(item: InboxCapture) {
+		selectReceivedCapture({
+			id: item.id,
+			name: item.original_filename,
+			mimeType: item.mime_type
+		});
 	}
 
 	async function handleSubmit(event: SubmitEvent) {
@@ -96,8 +199,16 @@
 	function startOver() {
 		extraction.startOver();
 		copyState = 'idle';
+		captureNotice = null;
 		if (fileInput) fileInput.value = '';
 		fileInput?.focus();
+	}
+
+	function kindLabel(mimeType: string) {
+		if (mimeType === 'application/pdf') return 'PDF';
+		if (mimeType === 'image/jpeg') return 'JPEG';
+		if (mimeType === 'image/png') return 'PNG';
+		return 'Arquivo';
 	}
 </script>
 
@@ -106,37 +217,10 @@
 	<meta name="description" content="Extraia informações de exames laboratoriais." />
 </svelte:head>
 
-<svelte:document onvisibilitychange={onVisibilityChange} />
-
 <section aria-labelledby="exams-title">
-	<div class="flex items-start justify-between gap-4">
-		<div>
-			<p class="text-sm font-semibold text-brand">Ferramentas</p>
-			<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
-		</div>
-		<Button
-			id="capture-inbox-button"
-			variant="secondary"
-			class="shrink-0"
-			aria-haspopup="dialog"
-			aria-expanded={inbox.panelOpen}
-			aria-controls="capture-inbox-panel"
-			onclick={() => inbox.openPanel()}
-		>
-			<svg viewBox="0 0 24 24" fill="none" class="size-5" aria-hidden="true">
-				<rect
-					x="7"
-					y="2.5"
-					width="10"
-					height="19"
-					rx="2"
-					stroke="currentColor"
-					stroke-width="1.8"
-				/>
-				<path d="M11 18.5h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-			</svg>
-			Celular
-		</Button>
+	<div>
+		<p class="text-sm font-semibold text-brand">Ferramentas</p>
+		<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
 	</div>
 	<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
 		Extraia informações de um exame laboratorial sem vinculá-lo a um paciente.
@@ -146,13 +230,26 @@
 		Esta operação é independente de paciente. O PDF e o resultado não são salvos pelo Sonnda.
 	</Alert>
 
-	<div class="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(17rem,0.8fr)_minmax(0,1.2fr)]">
-		<Card class="lg:sticky lg:top-6">
-			<form aria-labelledby="exam-upload-title" onsubmit={handleSubmit} novalidate>
+	<div
+		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[20rem_minmax(0,1fr)]"
+	>
+		<Card
+			class="w-full max-w-md min-w-0 @min-[56rem]/workspace:sticky @min-[56rem]/workspace:top-6"
+		>
+			<form
+				aria-labelledby="exam-upload-title"
+				onsubmit={handleSubmit}
+				ondragover={onDragOver}
+				ondragleave={onDragLeave}
+				ondrop={onDrop}
+				novalidate
+				class={['rounded-xl', dragOver && 'outline-2 outline-offset-4 outline-brand']}
+			>
 				<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
 				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">Enviar PDF</h2>
 				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-					Selecione um exame laboratorial para gerar um resumo temporário.
+					Selecione um exame no computador ou arraste um PDF recebido em Capturas. A extração começa
+					ao clicar em Extrair dados.
 				</p>
 
 				<label for="exam-file" class="mt-6 block text-sm font-medium text-on-surface">
@@ -164,7 +261,7 @@
 					name="file"
 					type="file"
 					accept="application/pdf,.pdf"
-					required
+					required={!extraction.capture}
 					disabled={extraction.status === 'processing' || extraction.checkingFile}
 					aria-invalid={extraction.fileError ? 'true' : undefined}
 					aria-describedby={extraction.fileError ? 'exam-file-error' : 'exam-file-helper'}
@@ -179,6 +276,10 @@
 					</p>
 				{/if}
 
+				{#if captureNotice}
+					<Alert variant="warning" class="mt-4">{captureNotice}</Alert>
+				{/if}
+
 				{#if extraction.file}
 					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
 						<p class="truncate font-medium">{extraction.file.name}</p>
@@ -187,9 +288,60 @@
 				{:else if extraction.capture}
 					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
 						<p class="truncate font-medium">{extraction.capture.original_filename}</p>
-						<p class="mt-1 text-on-surface-muted">Recebido pelo celular</p>
+						<p class="mt-1 text-on-surface-muted">Recebido pelo celular. Pronto para extrair.</p>
 					</div>
 				{/if}
+
+				<div class="mt-6 border-t border-border pt-6">
+					<h3 id="received-captures-title" class="text-sm font-semibold">Arquivos recebidos</h3>
+					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
+						Escolha um PDF já enviado pelo celular. {imageNotAccepted}
+					</p>
+					{#if !receivedOpen}
+						<Button variant="secondary" class="mt-4 w-full" onclick={showReceived}>
+							Ver arquivos recebidos
+						</Button>
+					{:else if receivedLoading && receivedItems.length === 0}
+						<p class="mt-4 text-sm text-on-surface-muted" role="status">Carregando arquivos...</p>
+					{:else}
+						{#if receivedProblem}
+							<Alert variant="error" class="mt-4">{receivedProblem}</Alert>
+						{/if}
+						{#if receivedItems.length === 0 && !receivedProblem}
+							<p class="mt-4 text-sm leading-6 text-on-surface-muted">
+								Nenhum arquivo recebido nesta conta.
+							</p>
+						{:else}
+							<ul class="mt-4 space-y-2" aria-labelledby="received-captures-title">
+								{#each receivedItems as item (item.id)}
+									<li>
+										<button
+											type="button"
+											class="w-full rounded-xl border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+											aria-pressed={extraction.capture?.id === item.id}
+											onclick={() => chooseReceived(item)}
+										>
+											<span class="block truncate font-medium">{item.original_filename}</span>
+											<span class="mt-1 block text-on-surface-muted">
+												{kindLabel(item.mime_type)} · {formatFileSize(item.size_bytes)}
+											</span>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						{#if receivedHasMore}
+							<Button
+								variant="secondary"
+								class="mt-4 w-full"
+								loading={receivedLoadingMore}
+								onclick={loadMoreReceived}
+							>
+								Carregar mais
+							</Button>
+						{/if}
+					{/if}
+				</div>
 
 				<Button
 					type="submit"
@@ -202,7 +354,7 @@
 			</form>
 		</Card>
 
-		<Card class="min-h-96">
+		<Card class="min-h-96 min-w-0">
 			{#if extraction.status === 'processing'}
 				<div
 					class="grid min-h-80 place-items-center text-center"
@@ -266,12 +418,3 @@
 		</Card>
 	</div>
 </section>
-
-{#if inbox.panelOpen}
-	<CaptureInboxPanel
-		{inbox}
-		extracting={extraction.status === 'processing'}
-		onExtract={extractFromCapture}
-		onClose={closeInbox}
-	/>
-{/if}
