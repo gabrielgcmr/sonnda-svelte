@@ -3,15 +3,12 @@
 	import { onDestroy } from 'svelte';
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { auth } from '#lib/features/auth/auth.svelte.js';
-	import { captureLibraryPageSize } from '#lib/features/capture/captureLibrary.svelte.js';
 	import {
 		captureDragPresent,
 		readCaptureDrag,
 		type CaptureDrag
 	} from '#lib/features/capture/captureDrag.js';
 	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
-	import { listInboxCaptures } from '#lib/features/capture/desktopCaptureApi.js';
-	import type { InboxCapture } from '#lib/features/capture/desktopCapture.svelte.js';
 	import ImagingReportResult from '#lib/features/imagingextraction/ImagingReportResult.svelte';
 	import { copyImagingSummary } from '#lib/features/imagingextraction/presentation.js';
 	import { ImagingExtractionState } from '#lib/features/imagingextraction/imagingExtraction.svelte.js';
@@ -26,7 +23,6 @@
 	import { formatFileSize } from '#lib/ui/formatFileSize.js';
 
 	const unsupportedCapture = 'Use uma captura em PDF, JPEG ou PNG.';
-	const receivedProblemMessage = 'Não foi possível consultar os arquivos recebidos.';
 
 	type ExtractionMode = 'laboratory' | 'imaging';
 
@@ -64,22 +60,14 @@
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
 	let captureNotice = $state<string | null>(null);
 	let dragOver = $state(false);
-	let receivedOpen = $state(false);
-	let receivedItems = $state.raw<InboxCapture[]>([]);
-	let receivedHasMore = $state(false);
-	let receivedLoading = $state(false);
-	let receivedLoadingMore = $state(false);
-	let receivedProblem = $state<string | null>(null);
-	let receivedGeneration = 0;
 
 	$effect(() => {
 		const labAccountChanged = labExtraction.bindAccount(accountId);
 		const imagingAccountChanged = imagingExtraction.bindAccount(accountId);
-		const accountChanged = labAccountChanged || imagingAccountChanged;
-		if (!accountChanged) return;
+		if (!labAccountChanged && !imagingAccountChanged) return;
 		if (fileInput) fileInput.value = '';
 		copyState = 'idle';
-		resetReceived();
+		captureNotice = null;
 	});
 	onDestroy(() => {
 		labExtraction.clear();
@@ -101,17 +89,6 @@
 		captureNotice = null;
 		dragOver = false;
 		if (fileInput) fileInput.value = '';
-	}
-
-	function resetReceived() {
-		receivedGeneration += 1;
-		receivedOpen = false;
-		receivedItems = [];
-		receivedHasMore = false;
-		receivedLoading = false;
-		receivedLoadingMore = false;
-		receivedProblem = null;
-		captureNotice = null;
 	}
 
 	function selectReceivedCapture(capture: CaptureDrag) {
@@ -184,59 +161,6 @@
 		if (!accepted && fileInput) fileInput.value = '';
 	}
 
-	async function showReceived() {
-		receivedOpen = true;
-		const generation = ++receivedGeneration;
-		await fetchReceived(generation, 0, false);
-	}
-
-	function loadMoreReceived() {
-		if (!receivedHasMore || receivedLoading || receivedLoadingMore) return;
-		void fetchReceived(receivedGeneration, receivedItems.length, true);
-	}
-
-	async function fetchReceived(generation: number, offset: number, append: boolean) {
-		const token = auth.session?.access_token;
-		const account = accountId;
-		if (!token || !account) {
-			receivedProblem = 'Entre na conta para ver os arquivos recebidos.';
-			return;
-		}
-		if (append) receivedLoadingMore = true;
-		else receivedLoading = true;
-		receivedProblem = null;
-		try {
-			const result = await listInboxCaptures(token, {
-				limit: captureLibraryPageSize,
-				offset
-			});
-			if (generation !== receivedGeneration || accountId !== account) return;
-			if (!result.data) {
-				receivedProblem = receivedProblemMessage;
-				return;
-			}
-			const incoming = result.data.items ?? [];
-			receivedItems = append ? [...receivedItems, ...incoming] : incoming;
-			receivedHasMore = result.data.has_more;
-		} catch {
-			if (generation === receivedGeneration) receivedProblem = receivedProblemMessage;
-		} finally {
-			if (generation === receivedGeneration) {
-				receivedLoading = false;
-				receivedLoadingMore = false;
-			}
-		}
-	}
-
-	function chooseReceived(item: InboxCapture) {
-		selectReceivedCapture({
-			id: item.id,
-			name: item.original_filename,
-			mimeType: item.mime_type,
-			sizeBytes: item.size_bytes
-		});
-	}
-
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		await runExtraction();
@@ -275,13 +199,6 @@
 		captureNotice = null;
 		if (fileInput) fileInput.value = '';
 		fileInput?.focus();
-	}
-
-	function kindLabel(mimeType: string) {
-		if (mimeType === 'application/pdf') return 'PDF';
-		if (mimeType === 'image/jpeg') return 'JPEG';
-		if (mimeType === 'image/png') return 'PNG';
-		return 'Arquivo';
 	}
 </script>
 
@@ -340,7 +257,7 @@
 	</Alert>
 
 	<div
-		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[20rem_minmax(0,1fr)]"
+		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[24rem_minmax(0,1fr)]"
 	>
 		<Card
 			class="w-full max-w-md min-w-0 @min-[56rem]/workspace:sticky @min-[56rem]/workspace:top-6"
@@ -352,42 +269,76 @@
 				ondragleave={onDragLeave}
 				ondrop={onDrop}
 				novalidate
-				class={['rounded-xl', dragOver && 'outline-2 outline-offset-4 outline-brand']}
 			>
 				<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
 				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">
 					{mode === 'laboratory' ? 'Enviar exame laboratorial' : 'Enviar laudo de imagem'}
 				</h2>
 				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-					Selecione um exame no computador ou arraste um arquivo recebido em Capturas. A extração
-					começa ao clicar em Extrair dados.
+					Arraste o arquivo para a área abaixo ou clique nela para escolher. A extração começa ao
+					clicar em Extrair dados.
 				</p>
 
-				<label for="exam-file" class="mt-6 block text-sm font-medium text-on-surface">
-					{mode === 'laboratory' ? 'Documento laboratorial' : 'Laudo de exame de imagem'}
-					<span class="text-danger" aria-hidden="true">*</span>
+				<label
+					class={[
+						'mt-6 flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand',
+						dragOver
+							? 'border-brand bg-brand-container text-on-brand-container'
+							: 'border-brand/40 bg-canvas text-on-surface hover:border-brand hover:bg-brand-container/40',
+						(extractionStatus === 'processing' || checkingFile) && 'cursor-not-allowed opacity-60'
+					]}
+				>
+					<input
+						bind:this={fileInput}
+						id="exam-file"
+						name="file"
+						type="file"
+						accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+						multiple={mode === 'imaging'}
+						required={!selectedCapture && !selectedFile}
+						disabled={extractionStatus === 'processing' || checkingFile}
+						aria-invalid={fileError ? 'true' : undefined}
+						aria-describedby={fileError ? 'exam-file-error' : 'exam-file-helper'}
+						onchange={handleFileChange}
+						class="sr-only"
+					/>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						class={['size-10', dragOver ? 'text-on-brand-container' : 'text-brand']}
+						aria-hidden="true"
+					>
+						<path
+							d="M12 16V5m0 0 4 4m-4-4-4 4M5 19h14"
+							stroke="currentColor"
+							stroke-width="1.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/>
+					</svg>
+					<p class="mt-4 text-base font-semibold">
+						{dragOver
+							? 'Solte para selecionar'
+							: mode === 'imaging'
+								? 'Arraste o laudo para cá'
+								: 'Arraste o exame para cá'}
+					</p>
+					<p
+						class={[
+							'mt-1 text-sm leading-6',
+							dragOver ? 'text-on-brand-container' : 'text-on-surface-muted'
+						]}
+					>
+						ou clique para escolher um arquivo
+					</p>
 				</label>
-				<input
-					bind:this={fileInput}
-					id="exam-file"
-					name="file"
-					type="file"
-					accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
-					multiple={mode === 'imaging'}
-					required={!selectedCapture && !selectedFile}
-					disabled={extractionStatus === 'processing' || checkingFile}
-					aria-invalid={fileError ? 'true' : undefined}
-					aria-describedby={fileError ? 'exam-file-error' : 'exam-file-helper'}
-					onchange={handleFileChange}
-					class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-on-surface file:mr-4 file:rounded-lg file:border-0 file:bg-brand-container file:px-3 file:py-2 file:font-semibold file:text-on-brand-container disabled:cursor-not-allowed disabled:bg-surface-muted"
-				/>
 				{#if fileError}
 					<p id="exam-file-error" class="mt-2 text-sm text-danger">{fileError}</p>
 				{:else}
 					<p id="exam-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
 						{mode === 'imaging'
-							? 'Um PDF ou até 5 imagens JPEG/PNG do mesmo laudo, com até 10 MB no total.'
-							: 'PDF, JPEG ou PNG com até 10 MB. O conteúdo será verificado antes do envio.'}
+							? 'Um PDF ou até 5 imagens JPEG/PNG do mesmo laudo, com até 10 MB no total. Também aceita um arquivo arrastado de Capturas.'
+							: 'PDF, JPEG ou PNG com até 10 MB. Também aceita um arquivo arrastado de Capturas.'}
 					</p>
 				{/if}
 
@@ -440,61 +391,6 @@
 						<p class="mt-1 text-on-surface-muted">Recebido pelo celular. Pronto para extrair.</p>
 					</div>
 				{/if}
-
-				<div class="mt-6 border-t border-border pt-6">
-					<h3 id="received-captures-title" class="text-sm font-semibold">Arquivos recebidos</h3>
-					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-						{mode === 'imaging'
-							? 'Escolha as fotos do mesmo laudo na ordem das páginas. Um PDF é selecionado sozinho.'
-							: 'Escolha um PDF, JPEG ou PNG já enviado pelo celular.'}
-					</p>
-					{#if !receivedOpen}
-						<Button variant="secondary" class="mt-4 w-full" onclick={showReceived}>
-							Ver arquivos recebidos
-						</Button>
-					{:else if receivedLoading && receivedItems.length === 0}
-						<p class="mt-4 text-sm text-on-surface-muted" role="status">Carregando arquivos...</p>
-					{:else}
-						{#if receivedProblem}
-							<Alert variant="error" class="mt-4">{receivedProblem}</Alert>
-						{/if}
-						{#if receivedItems.length === 0 && !receivedProblem}
-							<p class="mt-4 text-sm leading-6 text-on-surface-muted">
-								Nenhum arquivo recebido nesta conta.
-							</p>
-						{:else}
-							<ul class="mt-4 space-y-2" aria-labelledby="received-captures-title">
-								{#each receivedItems as item (item.id)}
-									<li>
-										<button
-											type="button"
-											class="w-full rounded-xl border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-											aria-pressed={mode === 'imaging'
-												? imagingExtraction.captures.some((capture) => capture.id === item.id)
-												: selectedCapture?.id === item.id}
-											onclick={() => chooseReceived(item)}
-										>
-											<span class="block truncate font-medium">{item.original_filename}</span>
-											<span class="mt-1 block text-on-surface-muted">
-												{kindLabel(item.mime_type)} · {formatFileSize(item.size_bytes)}
-											</span>
-										</button>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						{#if receivedHasMore}
-							<Button
-								variant="secondary"
-								class="mt-4 w-full"
-								loading={receivedLoadingMore}
-								onclick={loadMoreReceived}
-							>
-								Carregar mais
-							</Button>
-						{/if}
-					{/if}
-				</div>
 
 				<Button
 					type="submit"
