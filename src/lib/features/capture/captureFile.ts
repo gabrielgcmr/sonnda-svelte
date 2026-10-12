@@ -13,7 +13,7 @@ function matches(bytes: Uint8Array, signature: number[]) {
 }
 
 export function captureSupportsStandaloneExtraction(mimeType: string) {
-	return mimeType === 'application/pdf';
+	return mimeType === 'application/pdf' || mimeType === 'image/jpeg' || mimeType === 'image/png';
 }
 
 export async function readCaptureFileIssue(file: File): Promise<CaptureFileIssue | null> {

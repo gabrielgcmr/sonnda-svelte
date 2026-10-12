@@ -1,6 +1,6 @@
 // src/lib/features/labextraction/labExtraction.svelte.ts
 import { extractLabReportFromCapture, extractStandaloneLabReport } from './labExtractionApi.js';
-import { validateLabPdf } from './fileValidation.js';
+import { validateLabDocument } from './fileValidation.js';
 import type {
 	LabExtractionCapture,
 	LabExtractionProblem,
@@ -55,7 +55,7 @@ export class LabExtractionState {
 
 	requireFile() {
 		if (this.file || this.capture) return true;
-		this.fileError = 'Selecione um arquivo PDF para continuar.';
+		this.fileError = 'Selecione um arquivo PDF, JPEG ou PNG para continuar.';
 		return false;
 	}
 
@@ -73,7 +73,7 @@ export class LabExtractionState {
 		this.checkingFile = true;
 
 		try {
-			const validation = await validateLabPdf(file);
+			const validation = await validateLabDocument(file);
 			if (selectionVersion !== this.#selectionVersion) return false;
 			if (!validation.valid) {
 				this.fileError = validation.error;

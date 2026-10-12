@@ -40,9 +40,10 @@ describe('readCaptureFileIssue', () => {
 		expect(captureFileIssueMessage('empty')).toBe('O arquivo está vazio.');
 	});
 
-	it('allows standalone extraction only for PDF captures', () => {
+	it('allows standalone extraction for PDF, JPEG, and PNG captures', () => {
 		expect(captureSupportsStandaloneExtraction('application/pdf')).toBe(true);
-		expect(captureSupportsStandaloneExtraction('image/jpeg')).toBe(false);
-		expect(captureSupportsStandaloneExtraction('image/png')).toBe(false);
+		expect(captureSupportsStandaloneExtraction('image/jpeg')).toBe(true);
+		expect(captureSupportsStandaloneExtraction('image/png')).toBe(true);
+		expect(captureSupportsStandaloneExtraction('text/plain')).toBe(false);
 	});
 });

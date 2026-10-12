@@ -21,7 +21,7 @@
 	import Card from '#lib/ui/Card.svelte';
 	import { formatFileSize } from '#lib/ui/formatFileSize.js';
 
-	const imageNotAccepted = 'Imagens ainda não são aceitas pelo extrator laboratorial.';
+	const unsupportedCapture = 'Use uma captura em PDF, JPEG ou PNG.';
 	const receivedProblemMessage = 'Não foi possível consultar os arquivos recebidos.';
 
 	const extraction = new LabExtractionState();
@@ -48,8 +48,8 @@
 	onDestroy(() => extraction.clear());
 
 	function problemMessage(problem: LabExtractionProblem) {
-		if (problem.status === 413) return 'O PDF ultrapassa o limite de 10 MB.';
-		if (problem.status === 415) return 'A API não reconheceu o arquivo como PDF.';
+		if (problem.status === 413) return 'O arquivo ultrapassa o limite de 10 MB.';
+		if (problem.status === 415) return 'A API aceita arquivos PDF, JPEG ou PNG válidos.';
 		return problem.detail || problem.title || 'Não foi possível extrair os dados do exame.';
 	}
 
@@ -66,7 +66,7 @@
 
 	function selectReceivedCapture(capture: CaptureDrag) {
 		if (!captureSupportsStandaloneExtraction(capture.mimeType)) {
-			captureNotice = imageNotAccepted;
+			captureNotice = unsupportedCapture;
 			return;
 		}
 		captureNotice = null;
@@ -227,7 +227,7 @@
 	</p>
 
 	<Alert variant="info" class="mt-6 max-w-3xl">
-		Esta operação é independente de paciente. O PDF e o resultado não são salvos pelo Sonnda.
+		Esta operação é independente de paciente. O arquivo e o resultado não são salvos pelo Sonnda.
 	</Alert>
 
 	<div
@@ -246,21 +246,21 @@
 				class={['rounded-xl', dragOver && 'outline-2 outline-offset-4 outline-brand']}
 			>
 				<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
-				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">Enviar PDF</h2>
+				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">Enviar arquivo</h2>
 				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-					Selecione um exame no computador ou arraste um PDF recebido em Capturas. A extração começa
-					ao clicar em Extrair dados.
+					Selecione um exame no computador ou arraste um arquivo recebido em Capturas. A extração
+					começa ao clicar em Extrair dados.
 				</p>
 
 				<label for="exam-file" class="mt-6 block text-sm font-medium text-on-surface">
-					PDF laboratorial <span class="text-danger" aria-hidden="true">*</span>
+					Documento laboratorial <span class="text-danger" aria-hidden="true">*</span>
 				</label>
 				<input
 					bind:this={fileInput}
 					id="exam-file"
 					name="file"
 					type="file"
-					accept="application/pdf,.pdf"
+					accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
 					required={!extraction.capture}
 					disabled={extraction.status === 'processing' || extraction.checkingFile}
 					aria-invalid={extraction.fileError ? 'true' : undefined}
@@ -272,7 +272,7 @@
 					<p id="exam-file-error" class="mt-2 text-sm text-danger">{extraction.fileError}</p>
 				{:else}
 					<p id="exam-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
-						PDF com até 10 MB. O conteúdo também será verificado antes do envio.
+						PDF, JPEG ou PNG com até 10 MB. O conteúdo será verificado antes do envio.
 					</p>
 				{/if}
 
@@ -295,7 +295,7 @@
 				<div class="mt-6 border-t border-border pt-6">
 					<h3 id="received-captures-title" class="text-sm font-semibold">Arquivos recebidos</h3>
 					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-						Escolha um PDF já enviado pelo celular. {imageNotAccepted}
+						Escolha um PDF, JPEG ou PNG já enviado pelo celular.
 					</p>
 					{#if !receivedOpen}
 						<Button variant="secondary" class="mt-4 w-full" onclick={showReceived}>

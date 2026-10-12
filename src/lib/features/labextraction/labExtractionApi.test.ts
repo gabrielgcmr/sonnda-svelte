@@ -10,8 +10,9 @@ import { extractLabReportFromCapture, extractStandaloneLabReport } from './labEx
 beforeEach(() => post.mockReset());
 
 describe('labExtractionApi', () => {
-	it('sends the PDF as multipart with the Supabase access token', async () => {
-		const file = new File(['%PDF-1.4'], 'exam.pdf', { type: 'application/pdf' });
+	it('sends an image as multipart with the Supabase access token', async () => {
+		const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
+		const file = new File([bytes], 'exam.jpg', { type: 'image/jpeg' });
 		post.mockResolvedValue({ data: {} });
 
 		await extractStandaloneLabReport('access-token', file);
@@ -22,13 +23,13 @@ describe('labExtractionApi', () => {
 		expect(options.headers).toEqual({ Authorization: 'Bearer access-token' });
 		expect(options.body).toBeInstanceOf(FormData);
 		const uploadedFile = options.body.get('file') as File;
-		expect(uploadedFile.name).toBe('exam.pdf');
-		expect(uploadedFile.type).toBe('application/pdf');
-		expect(await uploadedFile.text()).toBe('%PDF-1.4');
+		expect(uploadedFile.name).toBe('exam.jpg');
+		expect(uploadedFile.type).toBe('image/jpeg');
+		expect(new Uint8Array(await uploadedFile.arrayBuffer())).toEqual(bytes);
 		expect(options.headers).not.toHaveProperty('Content-Type');
 	});
 
-	it('sends only the capture id to extract a captured PDF', async () => {
+	it('sends only the capture id to extract a captured document', async () => {
 		post.mockResolvedValue({ data: {} });
 
 		await extractLabReportFromCapture('access-token', 'capture-1');

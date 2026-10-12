@@ -66,9 +66,7 @@
 			>
 				Outros dados do cadastro
 			</summary>
-			<dl
-				class="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-6 text-sm"
-			>
+			<dl class="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-6 text-sm">
 				<div>
 					<dt class="text-on-surface-muted">CPF</dt>
 					<dd class="mt-1 font-medium text-on-surface">{valueOrDash(cpf)}</dd>

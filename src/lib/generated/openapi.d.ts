@@ -262,7 +262,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Extrair dados laboratoriais de forma independente sem persistir o documento */
+        /** Extrair dados laboratoriais de PDF, JPEG ou PNG sem persistir o documento */
         post: operations["extractStandaloneLabReport"];
         delete?: never;
         options?: never;
@@ -280,8 +280,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extrair dados laboratoriais de uma captura PDF sem associá-la a paciente
-         * @description Lê no servidor uma captura PDF disponível da conta. A captura permanece disponível até ser excluída ou expirar.
+         * Extrair dados laboratoriais de uma captura PDF, JPEG ou PNG
+         * @description Lê no servidor uma captura disponível da conta. A captura permanece disponível até ser excluída ou expirar.
          */
         post: operations["extractStandaloneLabReportFromCapture"];
         delete?: never;
@@ -667,7 +667,7 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: uuid
-             * @description Captura PDF disponível da conta autenticada
+             * @description Captura PDF, JPEG ou PNG disponível da conta autenticada
              */
             capture_id: string;
         };

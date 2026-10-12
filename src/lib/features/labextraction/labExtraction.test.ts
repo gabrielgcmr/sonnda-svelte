@@ -1,11 +1,11 @@
 // src/lib/features/labextraction/labExtraction.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { extractStandaloneLabReport, extractLabReportFromCapture, validateLabPdf } = vi.hoisted(
+const { extractStandaloneLabReport, extractLabReportFromCapture, validateLabDocument } = vi.hoisted(
 	() => ({
 		extractStandaloneLabReport: vi.fn(),
 		extractLabReportFromCapture: vi.fn(),
-		validateLabPdf: vi.fn()
+		validateLabDocument: vi.fn()
 	})
 );
 
@@ -13,7 +13,7 @@ vi.mock('./labExtractionApi.js', () => ({
 	extractStandaloneLabReport,
 	extractLabReportFromCapture
 }));
-vi.mock('./fileValidation.js', () => ({ validateLabPdf }));
+vi.mock('./fileValidation.js', () => ({ validateLabDocument }));
 
 import { LabExtractionState } from './labExtraction.svelte.js';
 import type { LabExtractionResult } from './types.js';
@@ -58,20 +58,20 @@ const capture = { id: 'capture-1', original_filename: 'exame-celular.pdf' };
 beforeEach(() => {
 	extractStandaloneLabReport.mockReset();
 	extractLabReportFromCapture.mockReset();
-	validateLabPdf.mockReset();
-	validateLabPdf.mockResolvedValue({ valid: true });
+	validateLabDocument.mockReset();
+	validateLabDocument.mockResolvedValue({ valid: true });
 });
 
 describe('LabExtractionState', () => {
 	it('validates a selected file before retaining it', async () => {
 		const state = new LabExtractionState();
 		const file = pdf();
-		validateLabPdf.mockResolvedValueOnce({ valid: false, error: 'PDF inválido.' });
+		validateLabDocument.mockResolvedValueOnce({ valid: false, error: 'Documento inválido.' });
 
 		expect(await state.selectFile(file)).toBe(false);
-		expect(validateLabPdf).toHaveBeenCalledWith(file);
+		expect(validateLabDocument).toHaveBeenCalledWith(file);
 		expect(state.file).toBeNull();
-		expect(state.fileError).toBe('PDF inválido.');
+		expect(state.fileError).toBe('Documento inválido.');
 	});
 
 	it('extracts a valid file and keeps partial results and warnings', async () => {
@@ -185,7 +185,7 @@ describe('LabExtractionState', () => {
 		const state = new LabExtractionState();
 
 		expect(await state.extract('token', 'account-a')).toBe(false);
-		expect(state.fileError).toBe('Selecione um arquivo PDF para continuar.');
+		expect(state.fileError).toBe('Selecione um arquivo PDF, JPEG ou PNG para continuar.');
 		expect(extractStandaloneLabReport).not.toHaveBeenCalled();
 	});
 });
