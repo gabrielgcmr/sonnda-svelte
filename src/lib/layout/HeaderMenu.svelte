@@ -44,19 +44,20 @@
 		aria-expanded={open}
 		aria-controls="header-settings-panel"
 	>
-		<svg viewBox="0 0 24 24" fill="none" class="size-5" aria-hidden="true">
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.8"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			class="size-5"
+			aria-hidden="true"
+		>
 			<path
-				d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Z"
-				stroke="currentColor"
-				stroke-width="1.7"
+				d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.74v.5a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"
 			/>
-			<path
-				d="m19.1 13.7 1.15.9-1.7 2.95-1.35-.55a7.8 7.8 0 0 1-1.9 1.1l-.2 1.45h-3.4l-.2-1.45A7.8 7.8 0 0 1 9.6 17l-1.35.55-1.7-2.95 1.15-.9a7.4 7.4 0 0 1 0-2.2l-1.15-.9 1.7-2.95L9.6 8.2a7.8 7.8 0 0 1 1.9-1.1l.2-1.45h3.4l.2 1.45a7.8 7.8 0 0 1 1.9 1.1l1.35-.55 1.7 2.95-1.15.9a7.4 7.4 0 0 1 0 2.2Z"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			/>
+			<circle cx="12" cy="12" r="3" />
 		</svg>
 	</Button>
 
