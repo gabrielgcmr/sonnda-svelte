@@ -16,6 +16,11 @@ Vulnerabilidades exploráveis, perda de dados ou falhas graves de autenticação
 
 Melhorias importantes de confiabilidade, arquitetura e manutenção.
 
+#### Retirar o cache temporário de dependências do repositório
+
+- **Justificativa:** 488 arquivos sob `.tmp/` estão versionados. O `prettier --check .` tenta formatar dependências extraídas ali e falha, impedindo `bun run validate` mesmo quando o código da aplicação está correto.
+- **Condições para implementação:** confirmar que não há conteúdo de projeto em `.tmp/`, retirar somente esses arquivos do Git, ignorar o diretório e repetir `bun run validate` com uma instalação limpa.
+
 #### Extrair imagens na extração avulsa
 
 - **Justificativa:** o celular já envia JPEG e PNG para a caixa de capturas, mas o extrator avulso só aceita PDF. `POST /lab-extractions/from-capture` recusa uma captura que não seja PDF, e o painel não oferece "Extrair" para imagens.

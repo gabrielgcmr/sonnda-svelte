@@ -127,12 +127,11 @@
 						</div>
 						{#if test.items?.length}
 							<div class="overflow-x-auto">
-								<table class="w-full min-w-lg text-left text-sm [overflow-wrap:normal]">
+								<table class="w-full table-fixed text-left text-sm">
 									<thead class="border-y border-border text-xs text-on-surface-muted">
 										<tr>
-											<th class="px-4 py-2 font-medium">Parâmetro</th>
+											<th class="w-2/5 px-4 py-2 font-medium">Parâmetro</th>
 											<th class="px-4 py-2 font-medium">Resultado</th>
-											<th class="px-4 py-2 font-medium">Referência</th>
 										</tr>
 									</thead>
 									<tbody class="divide-y divide-border">
@@ -143,9 +142,12 @@
 													{item.result_value ?? '—'}{#if item.result_unit}
 														{` ${item.result_unit}`}
 													{/if}
+													{#if item.result_value && item.reference_text}
+														<span class="text-on-surface-muted">
+															(referência: {item.reference_text})</span
+														>
+													{/if}
 												</td>
-												<td class="px-4 py-3 text-on-surface-muted">{item.reference_text ?? '—'}</td
-												>
 											</tr>
 										{/each}
 									</tbody>
