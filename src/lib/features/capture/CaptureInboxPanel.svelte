@@ -42,7 +42,8 @@
 		writeCaptureDrag(event.dataTransfer, {
 			id: item.id,
 			name: item.original_filename,
-			mimeType: item.mime_type
+			mimeType: item.mime_type,
+			sizeBytes: item.size_bytes
 		});
 	}
 </script>
@@ -71,10 +72,11 @@
 			</div>
 		{:else if connection.claimed}
 			<Alert variant="warning">
-				O celular está desconectado. Os arquivos já recebidos continuam disponíveis.
+				Sem atividade recente do celular. Ele pode continuar pareado; abra a página de captura no
+				celular para verificar. Os arquivos já recebidos continuam disponíveis.
 			</Alert>
 			<Button variant="secondary" class="w-full" onclick={() => connection.renewPairing()}>
-				Gerar novo QR
+				Gerar novo QR e substituir conexão
 			</Button>
 		{/if}
 

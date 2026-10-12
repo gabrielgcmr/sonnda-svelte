@@ -6,9 +6,10 @@ export type CaptureDrag = {
 	id: string;
 	name: string;
 	mimeType: string;
+	sizeBytes: number;
 };
 
-const captureDragFields = ['id', 'name', 'mimeType'] as const;
+const captureDragFields = ['id', 'name', 'mimeType', 'sizeBytes'] as const;
 
 export function writeCaptureDrag(dataTransfer: DataTransfer, capture: CaptureDrag) {
 	dataTransfer.effectAllowed = 'copy';
@@ -17,7 +18,8 @@ export function writeCaptureDrag(dataTransfer: DataTransfer, capture: CaptureDra
 		JSON.stringify({
 			id: capture.id,
 			name: capture.name,
-			mimeType: capture.mimeType
+			mimeType: capture.mimeType,
+			sizeBytes: capture.sizeBytes
 		})
 	);
 }
@@ -49,6 +51,9 @@ function isCaptureDrag(value: unknown): value is CaptureDrag {
 		typeof record.name === 'string' &&
 		record.name.length > 0 &&
 		typeof record.mimeType === 'string' &&
-		record.mimeType.length > 0
+		record.mimeType.length > 0 &&
+		typeof record.sizeBytes === 'number' &&
+		Number.isFinite(record.sizeBytes) &&
+		record.sizeBytes >= 0
 	);
 }

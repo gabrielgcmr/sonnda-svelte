@@ -4,16 +4,8 @@
 	import { currentAccount } from '#lib/features/account/account.svelte.js';
 	import { auth } from '#lib/features/auth/auth.svelte.js';
 	import { patientSection } from '#lib/features/patient/navigation.js';
-	import {
-		formatPatientCpf,
-		formatPatientDate,
-		patientAge,
-		patientGenderLabel,
-		patientRaceLabel
-	} from '#lib/features/patient/presentation.js';
+	import PatientContextPanel from '#lib/features/patient/PatientContextPanel.svelte';
 	import { patientWorkspace } from '#lib/features/patient/patientWorkspace.svelte.js';
-	import PatientIdentity from '#lib/layout/PatientIdentity.svelte';
-	import PatientNavigation from '#lib/layout/PatientNavigation.svelte';
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import ButtonLink from '#lib/ui/ButtonLink.svelte';
@@ -49,55 +41,41 @@
 	}
 </script>
 
-{#if patient}
-	<PatientIdentity
-		fullName={patient.full_name}
-		age={patientAge(patient.birth_date)}
-		birthDate={formatPatientDate(patient.birth_date)}
-		cpf={formatPatientCpf(patient.cpf)}
-		cns={patient.cns}
-		phone={patient.phone}
-		gender={patientGenderLabel(patient.gender)}
-		race={patientRaceLabel(patient.race)}
-	/>
-
-	<div
-		class="grid min-w-0 items-start gap-6 py-8 @min-[40rem]/workspace:grid-cols-[minmax(0,1fr)_4rem]"
-	>
-		<main class="min-w-0">
+<div
+	class="flex min-w-0 flex-col-reverse gap-6 @min-[48rem]/workspace:flex-row @min-[48rem]/workspace:items-start"
+>
+	<div class="w-full min-w-0 flex-1">
+		{#if patient}
 			{@render children()}
-		</main>
-		<PatientNavigation {patientId} {activeSection} />
+		{:else if loading}
+			<div
+				class="h-64 animate-pulse rounded-2xl border border-border bg-surface-muted"
+				aria-hidden="true"
+			></div>
+		{:else}
+			<section>
+				<p class="text-xs font-semibold tracking-wide text-danger uppercase">
+					Paciente indisponível
+				</p>
+				<h1 class="mt-1 text-2xl font-semibold tracking-tight">{patientErrorTitle()}</h1>
+				<Alert variant="error" class="mt-5">
+					<p>A API não disponibilizou os dados deste paciente para a conta atual.</p>
+				</Alert>
+				<div class="mt-5 flex flex-wrap gap-3">
+					<Button onclick={retry}>Tentar novamente</Button>
+					<ButtonLink href="/home" variant="secondary">Voltar para meus pacientes</ButtonLink>
+				</div>
+			</section>
+		{/if}
 	</div>
-{:else if loading}
-	<section
-		class="border-b border-border bg-surface-muted"
-		aria-label="Carregando paciente"
-		aria-busy="true"
-	>
-		<div class="animate-pulse py-5">
-			<div class="h-3 w-20 rounded bg-border"></div>
-			<div class="mt-3 h-7 w-72 max-w-full rounded bg-border"></div>
-			<div class="mt-5 h-10 max-w-xl rounded bg-border"></div>
-		</div>
-	</section>
-	<div class="w-full min-w-0 py-8">
-		<div class="h-64 animate-pulse rounded-2xl border border-border bg-surface-muted"></div>
-	</div>
-{:else}
-	<section class="border-b border-border bg-surface-muted">
-		<div class="py-5">
-			<p class="text-xs font-semibold tracking-wide text-danger uppercase">Paciente indisponível</p>
-			<h1 class="mt-1 text-2xl font-semibold tracking-tight">{patientErrorTitle()}</h1>
-		</div>
-	</section>
-	<main class="w-full min-w-0 py-8">
-		<Alert variant="error">
-			<p>A API não disponibilizou os dados deste paciente para a conta atual.</p>
-		</Alert>
-		<div class="mt-5 flex flex-wrap gap-3">
-			<Button onclick={retry}>Tentar novamente</Button>
-			<ButtonLink href="/home" variant="secondary">Voltar para meus pacientes</ButtonLink>
-		</div>
-	</main>
-{/if}
+
+	{#if patient}
+		<PatientContextPanel {patient} {patientId} {activeSection} />
+	{:else if loading}
+		<aside
+			class="h-80 w-full shrink-0 animate-pulse rounded-2xl border border-border bg-surface-muted @min-[48rem]/workspace:w-[280px]"
+			aria-label="Carregando paciente"
+			aria-busy="true"
+		></aside>
+	{/if}
+</div>

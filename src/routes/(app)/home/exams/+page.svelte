@@ -12,6 +12,10 @@
 	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
 	import { listInboxCaptures } from '#lib/features/capture/desktopCaptureApi.js';
 	import type { InboxCapture } from '#lib/features/capture/desktopCapture.svelte.js';
+	import ImagingReportResult from '#lib/features/imagingextraction/ImagingReportResult.svelte';
+	import { copyImagingSummary } from '#lib/features/imagingextraction/presentation.js';
+	import { ImagingExtractionState } from '#lib/features/imagingextraction/imagingExtraction.svelte.js';
+	import type { ImagingExtractionProblem } from '#lib/features/imagingextraction/types.js';
 	import LabExtractionResult from '#lib/features/labextraction/LabExtractionResult.svelte';
 	import { LabExtractionState } from '#lib/features/labextraction/labExtraction.svelte.js';
 	import { copyExtractionSummary } from '#lib/features/labextraction/presentation.js';
@@ -24,8 +28,38 @@
 	const unsupportedCapture = 'Use uma captura em PDF, JPEG ou PNG.';
 	const receivedProblemMessage = 'Não foi possível consultar os arquivos recebidos.';
 
-	const extraction = new LabExtractionState();
+	type ExtractionMode = 'laboratory' | 'imaging';
+
+	const labExtraction = new LabExtractionState();
+	const imagingExtraction = new ImagingExtractionState();
 	const accountId = $derived(currentAccount.account?.id ?? null);
+	let mode = $state<ExtractionMode>('laboratory');
+	const selectedFile = $derived(
+		mode === 'laboratory' ? labExtraction.file : imagingExtraction.file
+	);
+	const selectedCapture = $derived(
+		mode === 'laboratory' ? labExtraction.capture : imagingExtraction.capture
+	);
+	const selectedImagingPages = $derived(
+		imagingExtraction.files.length
+			? imagingExtraction.files.map((file) => ({ name: file.name, size: file.size }))
+			: imagingExtraction.captures.map((capture) => ({
+					name: capture.original_filename,
+					size: capture.size_bytes
+				}))
+	);
+	const fileError = $derived(
+		mode === 'laboratory' ? labExtraction.fileError : imagingExtraction.fileError
+	);
+	const checkingFile = $derived(
+		mode === 'laboratory' ? labExtraction.checkingFile : imagingExtraction.checkingFile
+	);
+	const extractionStatus = $derived(
+		mode === 'laboratory' ? labExtraction.status : imagingExtraction.status
+	);
+	const extractionProblem = $derived(
+		mode === 'laboratory' ? labExtraction.problem : imagingExtraction.problem
+	);
 	let fileInput = $state<HTMLInputElement>();
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
 	let captureNotice = $state<string | null>(null);
@@ -39,18 +73,34 @@
 	let receivedGeneration = 0;
 
 	$effect(() => {
-		const accountChanged = extraction.bindAccount(accountId);
+		const labAccountChanged = labExtraction.bindAccount(accountId);
+		const imagingAccountChanged = imagingExtraction.bindAccount(accountId);
+		const accountChanged = labAccountChanged || imagingAccountChanged;
 		if (!accountChanged) return;
 		if (fileInput) fileInput.value = '';
 		copyState = 'idle';
 		resetReceived();
 	});
-	onDestroy(() => extraction.clear());
+	onDestroy(() => {
+		labExtraction.clear();
+		imagingExtraction.clear();
+	});
 
-	function problemMessage(problem: LabExtractionProblem) {
+	function problemMessage(problem: LabExtractionProblem | ImagingExtractionProblem) {
 		if (problem.status === 413) return 'O arquivo ultrapassa o limite de 10 MB.';
 		if (problem.status === 415) return 'A API aceita arquivos PDF, JPEG ou PNG válidos.';
 		return problem.detail || problem.title || 'Não foi possível extrair os dados do exame.';
+	}
+
+	function selectMode(nextMode: ExtractionMode) {
+		if (mode === nextMode) return;
+		labExtraction.startOver();
+		imagingExtraction.startOver();
+		mode = nextMode;
+		copyState = 'idle';
+		captureNotice = null;
+		dragOver = false;
+		if (fileInput) fileInput.value = '';
 	}
 
 	function resetReceived() {
@@ -71,15 +121,24 @@
 		}
 		captureNotice = null;
 		if (fileInput) fileInput.value = '';
-		extraction.selectCapture({ id: capture.id, original_filename: capture.name });
+		const selected = {
+			id: capture.id,
+			original_filename: capture.name,
+			mime_type: capture.mimeType,
+			size_bytes: capture.sizeBytes
+		};
+		if (mode === 'laboratory') labExtraction.selectCapture(selected);
+		else imagingExtraction.selectCapture(selected);
 	}
 
 	async function handleFileChange(event: Event) {
 		copyState = 'idle';
 		captureNotice = null;
 		const input = event.currentTarget as HTMLInputElement;
-		const accepted = await extraction.selectFile(input.files?.[0] ?? null);
-		if (!accepted) input.value = '';
+		const files = Array.from(input.files ?? []);
+		if (mode === 'laboratory') await labExtraction.selectFile(files[0] ?? null);
+		else await imagingExtraction.selectFiles(files);
+		input.value = '';
 	}
 
 	function onDragOver(event: DragEvent) {
@@ -114,11 +173,14 @@
 			selectReceivedCapture(capture);
 			return;
 		}
-		const file = transfer?.files?.[0] ?? null;
-		if (!file) return;
+		const files = Array.from(transfer?.files ?? []);
+		if (!files.length) return;
 		captureNotice = null;
 		copyState = 'idle';
-		const accepted = await extraction.selectFile(file);
+		const accepted =
+			mode === 'laboratory'
+				? await labExtraction.selectFile(files[0])
+				: await imagingExtraction.selectFiles(files);
 		if (!accepted && fileInput) fileInput.value = '';
 	}
 
@@ -170,7 +232,8 @@
 		selectReceivedCapture({
 			id: item.id,
 			name: item.original_filename,
-			mimeType: item.mime_type
+			mimeType: item.mime_type,
+			sizeBytes: item.size_bytes
 		});
 	}
 
@@ -181,23 +244,33 @@
 
 	async function runExtraction() {
 		const accessToken = auth.session?.access_token;
-		if (!extraction.requireFile()) {
+		const activeExtraction = mode === 'laboratory' ? labExtraction : imagingExtraction;
+		if (!activeExtraction.requireFile()) {
 			fileInput?.focus();
 			return;
 		}
-		if (!accessToken || !accountId || extraction.status === 'processing') return;
+		if (!accessToken || !accountId || extractionStatus === 'processing') return;
 		copyState = 'idle';
-		await extraction.extract(accessToken, accountId);
+		await activeExtraction.extract(accessToken, accountId);
 	}
 
 	async function copySummary() {
-		const summary = extraction.result?.summary_text ?? '';
+		const copyMode = mode;
+		const summary =
+			mode === 'laboratory'
+				? (labExtraction.result?.summary_text ?? '')
+				: (imagingExtraction.result?.summary_text ?? '');
 		const clipboard = typeof navigator === 'undefined' ? null : navigator.clipboard;
-		copyState = (await copyExtractionSummary(summary, clipboard)) ? 'copied' : 'error';
+		const copied =
+			mode === 'laboratory'
+				? await copyExtractionSummary(summary, clipboard)
+				: await copyImagingSummary(summary, clipboard);
+		if (mode === copyMode) copyState = copied ? 'copied' : 'error';
 	}
 
 	function startOver() {
-		extraction.startOver();
+		if (mode === 'laboratory') labExtraction.startOver();
+		else imagingExtraction.startOver();
 		copyState = 'idle';
 		captureNotice = null;
 		if (fileInput) fileInput.value = '';
@@ -213,8 +286,15 @@
 </script>
 
 <svelte:head>
-	<title>Extrair exames | Sonnda</title>
-	<meta name="description" content="Extraia informações de exames laboratoriais." />
+	<title
+		>{mode === 'laboratory' ? 'Extrair exames laboratoriais' : 'Extrair laudo de imagem'} | Sonnda</title
+	>
+	<meta
+		name="description"
+		content={mode === 'laboratory'
+			? 'Extraia informações de exames laboratoriais.'
+			: 'Extraia informações de laudos escritos de exames de imagem.'}
+	/>
 </svelte:head>
 
 <section aria-labelledby="exams-title">
@@ -222,12 +302,41 @@
 		<p class="text-sm font-semibold text-brand">Ferramentas</p>
 		<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
 	</div>
+	<div
+		class="mt-6 inline-flex rounded-xl border border-border bg-surface-muted p-1"
+		role="group"
+		aria-label="Tipo de extração"
+	>
+		<button
+			type="button"
+			aria-pressed={mode === 'laboratory'}
+			class={mode === 'laboratory'
+				? 'rounded-lg bg-surface px-4 py-2 text-sm font-semibold text-on-surface shadow-sm'
+				: 'rounded-lg px-4 py-2 text-sm font-medium text-on-surface-muted hover:text-on-surface'}
+			onclick={() => selectMode('laboratory')}
+		>
+			Exame laboratorial
+		</button>
+		<button
+			type="button"
+			aria-pressed={mode === 'imaging'}
+			class={mode === 'imaging'
+				? 'rounded-lg bg-surface px-4 py-2 text-sm font-semibold text-on-surface shadow-sm'
+				: 'rounded-lg px-4 py-2 text-sm font-medium text-on-surface-muted hover:text-on-surface'}
+			onclick={() => selectMode('imaging')}
+		>
+			Exame de imagem
+		</button>
+	</div>
 	<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
-		Extraia informações de um exame laboratorial sem vinculá-lo a um paciente.
+		{mode === 'laboratory'
+			? 'Extraia informações de um exame laboratorial sem vinculá-lo a um paciente.'
+			: 'Extraia informações de um laudo escrito de ultrassom, tomografia, ressonância ou mamografia.'}
 	</p>
 
 	<Alert variant="info" class="mt-6 max-w-3xl">
-		Esta operação é independente de paciente. O arquivo e o resultado não são salvos pelo Sonnda.
+		Esta operação é independente de paciente. O arquivo e o resultado são temporários e não são
+		salvos no prontuário.
 	</Alert>
 
 	<div
@@ -246,14 +355,17 @@
 				class={['rounded-xl', dragOver && 'outline-2 outline-offset-4 outline-brand']}
 			>
 				<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
-				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">Enviar arquivo</h2>
+				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">
+					{mode === 'laboratory' ? 'Enviar exame laboratorial' : 'Enviar laudo de imagem'}
+				</h2>
 				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
 					Selecione um exame no computador ou arraste um arquivo recebido em Capturas. A extração
 					começa ao clicar em Extrair dados.
 				</p>
 
 				<label for="exam-file" class="mt-6 block text-sm font-medium text-on-surface">
-					Documento laboratorial <span class="text-danger" aria-hidden="true">*</span>
+					{mode === 'laboratory' ? 'Documento laboratorial' : 'Laudo de exame de imagem'}
+					<span class="text-danger" aria-hidden="true">*</span>
 				</label>
 				<input
 					bind:this={fileInput}
@@ -261,18 +373,21 @@
 					name="file"
 					type="file"
 					accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
-					required={!extraction.capture}
-					disabled={extraction.status === 'processing' || extraction.checkingFile}
-					aria-invalid={extraction.fileError ? 'true' : undefined}
-					aria-describedby={extraction.fileError ? 'exam-file-error' : 'exam-file-helper'}
+					multiple={mode === 'imaging'}
+					required={!selectedCapture && !selectedFile}
+					disabled={extractionStatus === 'processing' || checkingFile}
+					aria-invalid={fileError ? 'true' : undefined}
+					aria-describedby={fileError ? 'exam-file-error' : 'exam-file-helper'}
 					onchange={handleFileChange}
 					class="mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-on-surface file:mr-4 file:rounded-lg file:border-0 file:bg-brand-container file:px-3 file:py-2 file:font-semibold file:text-on-brand-container disabled:cursor-not-allowed disabled:bg-surface-muted"
 				/>
-				{#if extraction.fileError}
-					<p id="exam-file-error" class="mt-2 text-sm text-danger">{extraction.fileError}</p>
+				{#if fileError}
+					<p id="exam-file-error" class="mt-2 text-sm text-danger">{fileError}</p>
 				{:else}
 					<p id="exam-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
-						PDF, JPEG ou PNG com até 10 MB. O conteúdo será verificado antes do envio.
+						{mode === 'imaging'
+							? 'Um PDF ou até 5 imagens JPEG/PNG do mesmo laudo, com até 10 MB no total.'
+							: 'PDF, JPEG ou PNG com até 10 MB. O conteúdo será verificado antes do envio.'}
 					</p>
 				{/if}
 
@@ -280,14 +395,48 @@
 					<Alert variant="warning" class="mt-4">{captureNotice}</Alert>
 				{/if}
 
-				{#if extraction.file}
+				{#if mode === 'imaging' && selectedImagingPages.length}
+					<ol class="mt-4 space-y-2" aria-label="Páginas selecionadas em ordem">
+						{#each selectedImagingPages as page, index (`${page.name}-${index}`)}
+							<li
+								class="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-surface-muted p-3 text-sm"
+							>
+								<span class="min-w-0 flex-1 truncate"
+									>{index + 1}. {page.name} · {formatFileSize(page.size)}</span
+								>
+								<button
+									type="button"
+									class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+									aria-label={`Mover ${page.name} para cima`}
+									disabled={index === 0 || extractionStatus === 'processing'}
+									onclick={() => imagingExtraction.movePage(index, -1)}>↑</button
+								>
+								<button
+									type="button"
+									class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+									aria-label={`Mover ${page.name} para baixo`}
+									disabled={index === selectedImagingPages.length - 1 ||
+										extractionStatus === 'processing'}
+									onclick={() => imagingExtraction.movePage(index, 1)}>↓</button
+								>
+								<button
+									type="button"
+									class="rounded px-1 text-danger hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+									aria-label={`Remover ${page.name}`}
+									disabled={extractionStatus === 'processing'}
+									onclick={() => imagingExtraction.removePage(index)}>Remover</button
+								>
+							</li>
+						{/each}
+					</ol>
+				{:else if selectedFile}
 					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
-						<p class="truncate font-medium">{extraction.file.name}</p>
-						<p class="mt-1 text-on-surface-muted">{formatFileSize(extraction.file.size)}</p>
+						<p class="truncate font-medium">{selectedFile.name}</p>
+						<p class="mt-1 text-on-surface-muted">{formatFileSize(selectedFile.size)}</p>
 					</div>
-				{:else if extraction.capture}
+				{:else if selectedCapture}
 					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
-						<p class="truncate font-medium">{extraction.capture.original_filename}</p>
+						<p class="truncate font-medium">{selectedCapture.original_filename}</p>
 						<p class="mt-1 text-on-surface-muted">Recebido pelo celular. Pronto para extrair.</p>
 					</div>
 				{/if}
@@ -295,7 +444,9 @@
 				<div class="mt-6 border-t border-border pt-6">
 					<h3 id="received-captures-title" class="text-sm font-semibold">Arquivos recebidos</h3>
 					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-						Escolha um PDF, JPEG ou PNG já enviado pelo celular.
+						{mode === 'imaging'
+							? 'Escolha as fotos do mesmo laudo na ordem das páginas. Um PDF é selecionado sozinho.'
+							: 'Escolha um PDF, JPEG ou PNG já enviado pelo celular.'}
 					</p>
 					{#if !receivedOpen}
 						<Button variant="secondary" class="mt-4 w-full" onclick={showReceived}>
@@ -318,7 +469,9 @@
 										<button
 											type="button"
 											class="w-full rounded-xl border border-border px-3 py-2 text-left text-sm hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-											aria-pressed={extraction.capture?.id === item.id}
+											aria-pressed={mode === 'imaging'
+												? imagingExtraction.captures.some((capture) => capture.id === item.id)
+												: selectedCapture?.id === item.id}
 											onclick={() => chooseReceived(item)}
 										>
 											<span class="block truncate font-medium">{item.original_filename}</span>
@@ -346,16 +499,16 @@
 				<Button
 					type="submit"
 					class="mt-6 w-full"
-					loading={extraction.status === 'processing'}
-					disabled={extraction.checkingFile}
+					loading={extractionStatus === 'processing'}
+					disabled={checkingFile}
 				>
-					{extraction.status === 'processing' ? 'Extraindo...' : 'Extrair dados'}
+					{extractionStatus === 'processing' ? 'Extraindo...' : 'Extrair dados'}
 				</Button>
 			</form>
 		</Card>
 
 		<Card class="min-h-96 min-w-0">
-			{#if extraction.status === 'processing'}
+			{#if extractionStatus === 'processing'}
 				<div
 					class="grid min-h-80 place-items-center text-center"
 					aria-live="polite"
@@ -366,25 +519,34 @@
 							class="mx-auto block size-10 animate-spin rounded-full border-4 border-brand/25 border-t-brand"
 							aria-hidden="true"
 						></span>
-						<h2 class="mt-5 text-lg font-semibold">Processando o exame</h2>
+						<h2 class="mt-5 text-lg font-semibold">
+							{mode === 'laboratory' ? 'Processando o exame' : 'Processando o laudo de imagem'}
+						</h2>
 						<p class="mt-2 text-sm leading-6 text-on-surface-muted">
 							A extração pode levar alguns instantes. Mantenha esta página aberta.
 						</p>
 					</div>
 				</div>
-			{:else if extraction.result}
+			{:else if mode === 'laboratory' && labExtraction.result}
 				<LabExtractionResult
-					result={extraction.result}
+					result={labExtraction.result}
 					{copyState}
 					onCopy={copySummary}
 					onStartOver={startOver}
 				/>
-			{:else if extraction.status === 'error'}
+			{:else if mode === 'imaging' && imagingExtraction.result}
+				<ImagingReportResult
+					result={imagingExtraction.result}
+					{copyState}
+					onCopy={copySummary}
+					onStartOver={startOver}
+				/>
+			{:else if extractionStatus === 'error'}
 				<div aria-live="polite">
 					<p class="text-sm font-semibold text-brand">Resultado</p>
 					<h2 class="mt-2 text-lg font-semibold">Não foi possível concluir a extração</h2>
-					{#if extraction.problem}
-						<Alert variant="error" class="mt-5">{problemMessage(extraction.problem)}</Alert>
+					{#if extractionProblem}
+						<Alert variant="error" class="mt-5">{problemMessage(extractionProblem)}</Alert>
 					{/if}
 					<p class="mt-4 text-sm leading-6 text-on-surface-muted">
 						O arquivo selecionado foi mantido apenas nesta página para você tentar novamente.
@@ -408,7 +570,9 @@
 								stroke-linejoin="round"
 							/>
 						</svg>
-						<p class="mt-4 font-medium">Nenhum exame enviado</p>
+						<p class="mt-4 font-medium">
+							{mode === 'laboratory' ? 'Nenhum exame enviado' : 'Nenhum laudo enviado'}
+						</p>
 						<p class="mt-2 text-sm leading-6 text-on-surface-muted">
 							O resumo temporário será apresentado aqui após o processamento.
 						</p>

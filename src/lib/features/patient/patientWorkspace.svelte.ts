@@ -146,7 +146,9 @@ class PatientWorkspace {
 		this.#useAccount(accountId);
 		if (
 			this.selectedPatientId === patientId &&
-			(this.patientStatus === 'loading' || this.patientStatus === 'ready')
+			(this.patientStatus === 'loading' ||
+				this.patientStatus === 'ready' ||
+				this.patientStatus === 'error')
 		) {
 			return;
 		}

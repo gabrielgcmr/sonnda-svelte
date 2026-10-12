@@ -6,9 +6,9 @@
 
 - [x] Etapa 1 — Infraestrutura multimodal compartilhada
 - [x] Etapa 2 — Exames laboratoriais em JPEG e PNG
-- [ ] Etapa 3 — Extrator de laudos de imagem
-- [ ] Etapa 4 — Interface unificada
-- [ ] Etapa 5 — Contratos e validação
+- [x] Etapa 3 — Extrator de laudos de imagem
+- [x] Etapa 4 — Interface unificada
+- [x] Etapa 5 — Contratos e validação
 
 ## Direção consolidada
 

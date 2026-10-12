@@ -4,10 +4,14 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { CapturePresence } from '#lib/features/capture/capturePresence.svelte.js';
+	import CaptureQrScanner from '#lib/features/capture/CaptureQrScanner.svelte';
 	import { captureFileIssueMessage } from '#lib/features/capture/captureFile.js';
 	import { CaptureSession } from '#lib/features/capture/captureSession.svelte.js';
 	import { CaptureUpload } from '#lib/features/capture/captureUpload.svelte.js';
-	import { captureLinkMode } from '#lib/features/capture/storedCredential.js';
+	import {
+		captureCredentialStorageKey,
+		captureLinkMode
+	} from '#lib/features/capture/storedCredential.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import AuthShell from '#lib/ui/AuthShell.svelte';
 	import Button from '#lib/ui/Button.svelte';
@@ -17,6 +21,8 @@
 	const upload = new CaptureUpload();
 	const code = $derived(page.url.searchParams.get('code') ?? '');
 	let storageChecked = $state(false);
+	let scannerOpen = $state(false);
+	let wasPaired = $state(false);
 	const mode = $derived(
 		captureLinkMode({
 			code,
@@ -33,6 +39,7 @@
 	}
 
 	function endCaptureSession() {
+		wasPaired = true;
 		session.invalidate(sessionStorage);
 		presence.stop();
 	}
@@ -52,6 +59,7 @@
 
 	async function claimCodeFromUrl(url: { searchParams: { get(name: string): string | null } }) {
 		if (!storageChecked) {
+			wasPaired = sessionStorage.getItem(captureCredentialStorageKey) !== null;
 			session.restore(sessionStorage);
 			storageChecked = true;
 		}
@@ -59,6 +67,7 @@
 		if (nextCode.trim() !== '') {
 			await session.claim(nextCode, sessionStorage, removeCodeFromUrl);
 		}
+		if (session.credential) wasPaired = true;
 		watchCredential();
 	}
 
@@ -80,6 +89,13 @@
 			uploadToken: session.credential.uploadToken,
 			probe: () => presence.probe()
 		});
+	}
+
+	async function claimScannedCode(pairingCode: string) {
+		scannerOpen = false;
+		await session.claim(pairingCode, sessionStorage, removeCodeFromUrl);
+		if (session.credential) wasPaired = true;
+		watchCredential();
 	}
 
 	onMount(() => {
@@ -108,7 +124,7 @@
 	asideTitle="Envie o exame pelo celular, sem digitar no computador."
 	asideDescription="Abra o QR mostrado no Sonnda. O PDF ou a imagem segue para o computador e você não precisa entrar na conta."
 	eyebrow="Captura"
-	title={mode === 'needs-qr' ? 'Abra o QR novamente' : 'Enviar exame'}
+	title={mode === 'needs-qr' ? 'Conectar celular' : 'Enviar exame'}
 	description="Esta página recebe um PDF ou uma imagem a partir do QR do computador."
 >
 	{#if mode === 'checking' || mode === 'claiming'}
@@ -116,7 +132,35 @@
 			{mode === 'checking' ? 'Verificando o link neste celular...' : 'Conectando este celular...'}
 		</p>
 	{:else if mode === 'needs-qr'}
-		<Alert variant="warning">Abra novamente o QR no computador para enviar o exame.</Alert>
+		<Alert variant="warning">
+			{#if session.status === 'error' && !presence.ended && session.problem?.status === 401}
+				Este QR expirou ou já foi usado. Gere outro em Capturas no computador e tente novamente.
+			{:else if session.status === 'error' && !presence.ended}
+				Não foi possível verificar o QR agora. Confira a conexão e tente novamente.
+			{:else if presence.ended || wasPaired}
+				A sessão deste celular terminou ou expirou. Gere um novo QR em Capturas no computador e
+				leia-o aqui.
+			{:else}
+				Abra Capturas no computador para mostrar o QR e conectar este celular.
+			{/if}
+		</Alert>
+		{#if scannerOpen}
+			<CaptureQrScanner onCode={claimScannedCode} onCancel={() => (scannerOpen = false)} />
+		{:else}
+			<Button class="mt-4 w-full" onclick={() => (scannerOpen = true)}>
+				<svg viewBox="0 0 24 24" fill="none" class="size-5" aria-hidden="true">
+					<path
+						d="M4 8V6a2 2 0 0 1 2-2h2m8 0h2a2 2 0 0 1 2 2v2M4 16v2a2 2 0 0 0 2 2h2m8 0h2a2 2 0 0 0 2-2v-2"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+					/>
+					<rect x="8" y="8" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.8" />
+					<circle cx="12" cy="12" r="1.5" fill="currentColor" />
+				</svg>
+				Ler novo QR com a câmera
+			</Button>
+		{/if}
 	{:else}
 		{#if presence.desktopPresent === false}
 			<Alert variant="warning">Abra o Sonnda no computador. Este celular continua pareado.</Alert>
