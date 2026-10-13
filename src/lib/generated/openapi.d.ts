@@ -736,6 +736,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/temporary-extractions/{id}/pages/{position}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obter URL temporária de uma página da extração */
+        get: operations["getTemporaryExtractionPageFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/temporary-extractions/{id}/retry": {
         parameters: {
             query?: never;
@@ -1109,6 +1126,8 @@ export interface components {
             material: string | null;
             method: string | null;
             release_at: string | null;
+            /** Format: int64 */
+            source_page?: number;
             test_name: string;
         };
         ExtractionWarning: {
@@ -1419,6 +1438,7 @@ export interface components {
             impression_text: string | null;
             measurements: components["schemas"]["Measurement"][] | null;
             modality: string;
+            patient_name: string | null;
             technique_text: string | null;
         };
         Result: {
@@ -1487,6 +1507,17 @@ export interface components {
             /** Format: int64 */
             size_bytes: number;
         };
+        TemporaryPageFileResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TemporaryPageFileResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            expires_at: string;
+            url: string;
+        };
         TemporaryResultResponse: {
             /**
              * Format: uri
@@ -1497,6 +1528,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             error_message?: string;
+            exam_name?: string;
             /** Format: date-time */
             expires_at: string;
             id: string;
@@ -1504,6 +1536,7 @@ export interface components {
             kind: string;
             lab_result?: components["schemas"]["Result"];
             pages: components["schemas"]["TemporaryPage"][] | null;
+            patient_name?: string;
             /** Format: int64 */
             progress: number;
             status: string;
@@ -5007,6 +5040,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemporaryResultResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getTemporaryExtractionPageFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemporaryPageFileResponse"];
                 };
             };
             /** @description Error */

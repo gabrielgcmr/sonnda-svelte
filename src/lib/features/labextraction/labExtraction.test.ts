@@ -65,6 +65,28 @@ beforeEach(() => {
 });
 
 describe('LabExtractionState', () => {
+	it('sends ordered laboratory image pages and preserves each selected page', async () => {
+		const state = new LabExtractionState();
+		const files = Array.from(
+			{ length: 20 },
+			(_, index) =>
+				new File([new Uint8Array([0xff, 0xd8, 0xff])], `pagina-${index + 1}.jpg`, {
+					type: 'image/jpeg'
+				})
+		);
+		expect(await state.selectFiles(files)).toBe(true);
+		state.movePage(0, 1);
+		state.removePage(19);
+		createTemporaryExtractionFromFiles.mockResolvedValue({
+			data: { id: 'job-20', status: 'queued', progress: 0 }
+		});
+		expect(await state.extract('token', 'account-a')).toBe(true);
+		const sent = createTemporaryExtractionFromFiles.mock.calls[0][2] as File[];
+		expect(sent).toHaveLength(19);
+		expect(sent[0].name).toBe('pagina-2.jpg');
+		expect(sent[1].name).toBe('pagina-1.jpg');
+	});
+
 	it('validates a selected file before retaining it', async () => {
 		const state = new LabExtractionState();
 		const file = pdf();

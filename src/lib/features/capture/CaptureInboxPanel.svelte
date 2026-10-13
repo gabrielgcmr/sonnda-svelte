@@ -12,10 +12,9 @@
 	type Props = {
 		connection: DesktopCaptureConnection;
 		library: CaptureLibrary;
-		onClose: () => void;
 	};
 
-	let { connection, library, onClose }: Props = $props();
+	let { connection, library }: Props = $props();
 
 	const pairingUrl = $derived(
 		connection.pairingCode
@@ -32,10 +31,7 @@
 </script>
 
 <div id="capture-inbox-panel" aria-labelledby="capture-inbox-title">
-	<div class="flex items-start justify-between gap-3">
-		<h2 id="capture-inbox-title" class="text-sm font-semibold">Enviar pelo celular</h2>
-		<Button variant="ghost" size="sm" onclick={onClose}>Fechar</Button>
-	</div>
+	<h2 id="capture-inbox-title" class="text-sm font-semibold">Enviar pelo celular</h2>
 
 	<div class="mt-3 space-y-4">
 		{#if connection.phase === 'loading'}

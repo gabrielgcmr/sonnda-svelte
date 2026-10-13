@@ -40,6 +40,11 @@ Funcionalidades que dependem de uma decisão arquitetural futura.
 
 ## Itens
 
+### P2 — Envio incremental e extração em lote de páginas laboratoriais
+
+- **Justificativa:** o trabalho de até 20 fotos é enviado em uma única requisição multipart e cada página é extraída separadamente para garantir a origem exata do resultado. Trabalhos grandes podem consumir mais banda, tempo e chamadas ao Gemini.
+- **Condições para implementação:** medir falhas e duração de trabalhos reais; se necessário, criar upload incremental com retomada e um contrato de extração em lote que devolva a origem verificável de cada resultado, mantendo os limites por página e o isolamento por conta.
+
 ### P3 — Migrar a autenticação para sessão SSR com cookies
 
 - **Justificativa:** a proteção atual de `/`, `/login` e `/home` ocorre no navegador após a hidratação. A API continua protegida pela validação do Bearer token, portanto não há vulnerabilidade conhecida, mas o SSR permitiria decidir redirecionamentos no servidor e evitar depender do estado de autenticação client-side.

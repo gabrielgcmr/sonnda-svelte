@@ -115,7 +115,7 @@
 			{#snippet left()}
 				<ClinicalSidebar {capturesOpen} onCaptures={toggleCaptures}>
 					{#snippet panel()}
-						<CaptureInboxPanel {connection} {library} onClose={closeCaptures} />
+						<CaptureInboxPanel {connection} {library} />
 					{/snippet}
 				</ClinicalSidebar>
 			{/snippet}

@@ -41,6 +41,13 @@ export function getTemporaryExtraction(accessToken: string, id: string) {
 	});
 }
 
+export function getTemporaryExtractionPageFile(accessToken: string, id: string, position: number) {
+	return apiClient.GET('/temporary-extractions/{id}/pages/{position}/file', {
+		params: { path: { id, position } },
+		headers: { Authorization: `Bearer ${accessToken}` }
+	});
+}
+
 export function retryTemporaryExtraction(accessToken: string, id: string) {
 	return apiClient.POST('/temporary-extractions/{id}/retry', {
 		params: { path: { id } },

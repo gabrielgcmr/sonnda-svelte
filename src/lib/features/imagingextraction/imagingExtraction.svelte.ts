@@ -4,6 +4,7 @@ import {
 	createTemporaryExtractionFromFiles
 } from '#lib/features/documentprocessing/temporaryExtractionApi.js';
 import { MAX_DOCUMENT_BYTES, validateDocument } from '../documentprocessing/fileValidation.js';
+import { optimizeImage } from '../documentprocessing/optimizeImage.js';
 import type {
 	ImagingExtractionCapture,
 	ImagingExtractionProblem,
@@ -101,30 +102,34 @@ export class ImagingExtractionState {
 			this.fileError = 'Selecione no máximo 5 imagens do mesmo laudo.';
 			return false;
 		}
-		if (files.reduce((total, file) => total + file.size, 0) > MAX_DOCUMENT_BYTES) {
-			this.fileError = 'As imagens devem ter no máximo 10 MB no total.';
-			return false;
-		}
 		this.checkingFile = true;
 		try {
+			const prepared: File[] = [];
 			for (const file of files) {
-				const validation = await validateDocument(file);
+				const optimized = await optimizeImage(file);
+				if (selectionVersion !== this.#selectionVersion) return false;
+				const validation = await validateDocument(optimized);
 				if (selectionVersion !== this.#selectionVersion) return false;
 				if (!validation.valid) {
 					this.fileError = validation.error;
 					return false;
 				}
 				if (files.length > 1) {
-					const prefix = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+					const prefix = new Uint8Array(await optimized.slice(0, 5).arrayBuffer());
 					if (selectionVersion !== this.#selectionVersion) return false;
 					if (String.fromCharCode(...prefix) === '%PDF-') {
 						this.fileError = 'Para várias páginas, selecione apenas imagens JPEG ou PNG.';
 						return false;
 					}
 				}
+				prepared.push(optimized);
 			}
-			this.files = [...files];
-			this.file = files[0];
+			if (prepared.reduce((total, file) => total + file.size, 0) > MAX_DOCUMENT_BYTES) {
+				this.fileError = 'As imagens devem ter no máximo 10 MB no total.';
+				return false;
+			}
+			this.files = prepared;
+			this.file = prepared[0];
 			return true;
 		} catch {
 			if (selectionVersion !== this.#selectionVersion) return false;

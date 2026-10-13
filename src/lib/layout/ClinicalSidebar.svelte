@@ -47,7 +47,7 @@
 	aria-label="Capturas e ferramentas"
 	class={[
 		'flex max-h-[calc(100dvh-3rem)] flex-col rounded-2xl border border-border bg-surface shadow-sm',
-		expanded ? 'w-105' : 'w-14'
+		expanded ? 'w-[23.625rem]' : 'w-14'
 	]}
 >
 	<div class="flex min-h-14 items-center justify-between gap-2 border-b border-border p-2">

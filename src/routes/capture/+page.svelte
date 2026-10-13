@@ -179,7 +179,7 @@
 				name="file"
 				type="file"
 				accept="application/pdf,image/jpeg,image/png"
-				disabled={upload.status === 'uploading'}
+				disabled={upload.status === 'uploading' || upload.preparing}
 				aria-invalid={upload.issue ? 'true' : undefined}
 				aria-describedby={upload.issue ? 'capture-file-error' : 'capture-file-helper'}
 				onchange={onFileChange}
@@ -191,12 +191,16 @@
 				</p>
 			{:else}
 				<p id="capture-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
-					PDF, JPEG ou PNG com até 5 MiB. O arquivo é conferido neste celular antes do envio.
+					PDF, JPEG ou PNG com até 5 MiB após otimização. O arquivo é conferido neste celular antes
+					do envio.
 				</p>
 			{/if}
 			{#if upload.file}
 				<p class="mt-3 truncate text-sm font-medium">{upload.file.name}</p>
 			{/if}
+			{#if upload.preparing}<p class="mt-3 text-sm text-on-surface-muted" role="status">
+					Preparando imagem...
+				</p>{/if}
 			{#if upload.notice}
 				<div class="mt-4">
 					<Alert variant="warning">{upload.notice}</Alert>
@@ -224,7 +228,7 @@
 				type="submit"
 				class="mt-6 w-full"
 				loading={upload.status === 'uploading'}
-				disabled={!upload.file || upload.issue !== null}
+				disabled={upload.preparing || !upload.file || upload.issue !== null}
 			>
 				Enviar arquivo
 			</Button>

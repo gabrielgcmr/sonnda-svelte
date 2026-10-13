@@ -1,6 +1,7 @@
 // src/lib/features/capture/captureUpload.svelte.ts
 import { captureCredentialRejected, uploadCaptureFile } from './captureApi.js';
 import { readCaptureFileIssue, type CaptureFileIssue } from './captureFile.js';
+import { optimizeImage } from '#lib/features/documentprocessing/optimizeImage.js';
 
 export const captureComputerAwayMessage = 'Abra o Sonnda no computador e tente de novo.';
 export const captureUploadRetryMessage = 'Não foi possível enviar o exame. Tente de novo.';
@@ -13,21 +14,33 @@ export class CaptureUpload {
 	issue = $state<CaptureFileIssue | null>(null);
 	notice = $state<string | null>(null);
 	progress = $state<number | null>(null);
+	preparing = $state(false);
 	status = $state<'idle' | 'uploading'>('idle');
 	sentNames = $state<string[]>([]);
 
 	#selectVersion = 0;
 
 	async select(file: File | null) {
-		this.notice = null;
-		this.file = file;
-		this.issue = null;
-		if (!file) return;
-
 		const version = ++this.#selectVersion;
-		const issue = await readCaptureFileIssue(file);
-		if (version !== this.#selectVersion) return;
-		this.issue = issue;
+		this.notice = null;
+		this.file = null;
+		this.issue = null;
+		if (!file) {
+			this.preparing = false;
+			return;
+		}
+
+		this.preparing = true;
+		try {
+			const prepared = await optimizeImage(file);
+			if (version !== this.#selectVersion) return;
+			const issue = await readCaptureFileIssue(prepared);
+			if (version !== this.#selectVersion) return;
+			this.file = prepared;
+			this.issue = issue;
+		} finally {
+			if (version === this.#selectVersion) this.preparing = false;
+		}
 	}
 
 	async submit(input: {

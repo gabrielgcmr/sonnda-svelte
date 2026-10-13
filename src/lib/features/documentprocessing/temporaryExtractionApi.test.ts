@@ -8,6 +8,7 @@ import {
 	createTemporaryExtractionFromCaptures,
 	createTemporaryExtractionFromFiles,
 	getTemporaryExtraction,
+	getTemporaryExtractionPageFile,
 	listTemporaryExtractions,
 	retryTemporaryExtraction
 } from './temporaryExtractionApi.js';
@@ -47,5 +48,13 @@ it('scopes capture creation and retrieval to the authenticated API', async () =>
 	expect(post).toHaveBeenCalledWith('/temporary-extractions/{id}/retry', {
 		headers: { Authorization: 'Bearer token' },
 		params: { path: { id: 'saved-1' } }
+	});
+});
+
+it('requests page URLs through the authenticated API', async () => {
+	await getTemporaryExtractionPageFile('token', 'saved-1', 2);
+	expect(get).toHaveBeenCalledWith('/temporary-extractions/{id}/pages/{position}/file', {
+		headers: { Authorization: 'Bearer token' },
+		params: { path: { id: 'saved-1', position: 2 } }
 	});
 });

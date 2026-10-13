@@ -10,6 +10,7 @@
 	} from '#lib/features/capture/captureDrag.js';
 	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
 	import CapturePreviewCard from '#lib/features/capture/CapturePreviewCard.svelte';
+	import TemporaryDocumentViewer from '#lib/features/documentprocessing/TemporaryDocumentViewer.svelte';
 	import {
 		getTemporaryExtraction,
 		listTemporaryExtractions,
@@ -32,6 +33,14 @@
 	const unsupportedCapture = 'Use uma captura em PDF, JPEG ou PNG.';
 
 	type ExtractionMode = 'laboratory' | 'imaging';
+	type TemporaryJob = components['schemas']['TemporaryResultResponse'];
+
+	const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
+		day: '2-digit',
+		month: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
 
 	const labExtraction = new LabExtractionState();
 	const imagingExtraction = new ImagingExtractionState();
@@ -62,6 +71,34 @@
 					createdAt: capture.created_at
 				}))
 	);
+	const selectedLabPages = $derived(
+		labExtraction.files.length
+			? labExtraction.files.map((file) => ({
+					name: file.name,
+					size: file.size,
+					mimeType: file.type,
+					file,
+					captureId: null,
+					createdAt: undefined
+				}))
+			: labExtraction.captures.map((capture) => ({
+					name: capture.original_filename,
+					size: capture.size_bytes ?? 0,
+					mimeType: capture.mime_type ?? '',
+					file: null,
+					captureId: capture.id,
+					createdAt: capture.created_at
+				}))
+	);
+	const selectedPages = $derived(mode === 'laboratory' ? selectedLabPages : selectedImagingPages);
+	function moveSelectedPage(index: number, direction: -1 | 1) {
+		if (mode === 'laboratory') labExtraction.movePage(index, direction);
+		else imagingExtraction.movePage(index, direction);
+	}
+	function removeSelectedPage(index: number) {
+		if (mode === 'laboratory') labExtraction.removePage(index);
+		else imagingExtraction.removePage(index);
+	}
 	const fileError = $derived(
 		mode === 'laboratory' ? labExtraction.fileError : imagingExtraction.fileError
 	);
@@ -84,11 +121,14 @@
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
 	let captureNotice = $state<string | null>(null);
 	let dragOver = $state(false);
-	let savedItems = $state<components['schemas']['TemporaryResultResponse'][]>([]);
+	let savedItems = $state<TemporaryJob[]>([]);
 	let savedLoading = $state(false);
 	let savedError = $state<string | null>(null);
 	let openingSavedId = $state<string | null>(null);
 	let savedRequestVersion = 0;
+	let job = $state.raw<TemporaryJob | null>(null);
+	let reviewTab = $state<'document' | 'result'>('result');
+	const openJob = $derived(job && job.id === activeTemporaryId ? job : null);
 
 	$effect(() => {
 		const labAccountChanged = labExtraction.bindAccount(accountId);
@@ -97,6 +137,8 @@
 		if (fileInput) fileInput.value = '';
 		copyState = 'idle';
 		captureNotice = null;
+		job = null;
+		reviewTab = 'result';
 	});
 	$effect(() => {
 		const id = activeTemporaryId;
@@ -116,6 +158,7 @@
 					return;
 				}
 				if (!data) return;
+				job = data;
 				if (data.status === 'completed' || data.status === 'failed') {
 					await openSaved(id, token, account);
 					void refreshSaved(token, account);
@@ -186,6 +229,8 @@
 			}
 			labExtraction.startOver();
 			imagingExtraction.startOver();
+			if (job?.id !== data.id) reviewTab = 'result';
+			job = data;
 			mode = data.kind === 'imaging' ? 'imaging' : 'laboratory';
 			if (data.lab_result) labExtraction.restore(data.lab_result, data.id);
 			if (data.imaging_result) imagingExtraction.restore(data.imaging_result, data.id);
@@ -211,8 +256,31 @@
 		imagingExtraction.clear();
 	});
 
+	function formatDateTime(value: string) {
+		const date = new Date(value);
+		return Number.isNaN(date.getTime()) ? '' : dateTimeFormat.format(date);
+	}
+
+	function savedTitle(item: TemporaryJob) {
+		if (item.patient_name) return item.patient_name;
+		if (item.exam_name) return item.exam_name;
+		if (item.status === 'queued' || item.status === 'processing') return 'Processando...';
+		if (item.status === 'failed') return 'Extração com falha';
+		return 'Paciente não identificado';
+	}
+
+	function savedStatus(item: TemporaryJob) {
+		if (item.status === 'queued') return 'Na fila';
+		if (item.status === 'processing') return `Processando (${item.progress}%)`;
+		if (item.status === 'failed') return 'Falhou';
+		return null;
+	}
+
 	function problemMessage(problem: LabExtractionProblem | ImagingExtractionProblem) {
-		if (problem.status === 413) return 'O arquivo ultrapassa o limite de 10 MB.';
+		if (problem.status === 413)
+			return mode === 'laboratory'
+				? 'Selecione até 20 imagens com no máximo 10 MB cada.'
+				: 'O arquivo ultrapassa o limite de 10 MB.';
 		if (problem.status === 415) return 'A API aceita arquivos PDF, JPEG ou PNG válidos.';
 		return problem.detail || problem.title || 'Não foi possível extrair os dados do exame.';
 	}
@@ -251,7 +319,7 @@
 		captureNotice = null;
 		const input = event.currentTarget as HTMLInputElement;
 		const files = Array.from(input.files ?? []);
-		if (mode === 'laboratory') await labExtraction.selectFile(files[0] ?? null);
+		if (mode === 'laboratory') await labExtraction.selectFiles(files, true);
 		else await imagingExtraction.selectFiles(files);
 		input.value = '';
 	}
@@ -294,7 +362,7 @@
 		copyState = 'idle';
 		const accepted =
 			mode === 'laboratory'
-				? await labExtraction.selectFile(files[0])
+				? await labExtraction.selectFiles(files, true)
 				: await imagingExtraction.selectFiles(files);
 		if (!accepted && fileInput) fileInput.value = '';
 	}
@@ -377,10 +445,7 @@
 </svelte:head>
 
 <section aria-labelledby="exams-title">
-	<div>
-		<p class="text-sm font-semibold text-brand">Ferramentas</p>
-		<h1 id="exams-title" class="mt-2 text-3xl font-semibold tracking-tight">Extrair exames</h1>
-	</div>
+	<h1 id="exams-title" class="text-3xl font-semibold tracking-tight">Extrair exames</h1>
 	<div
 		class="mt-6 inline-flex rounded-xl border border-border bg-surface-muted p-1"
 		role="group"
@@ -407,308 +472,355 @@
 			Exame de imagem
 		</button>
 	</div>
-	<p class="mt-3 max-w-2xl leading-7 text-on-surface-muted">
+	<p class="mt-3 max-w-4xl leading-7 text-on-surface-muted">
 		{mode === 'laboratory'
 			? 'Extraia informações de um exame laboratorial sem vinculá-lo a um paciente.'
 			: 'Extraia informações de um laudo escrito de ultrassom, tomografia, ressonância ou mamografia.'}
+		O arquivo e o resultado ficam disponíveis por até 24 horas e não são salvos no prontuário.
 	</p>
 
-	<Alert variant="info" class="mt-6 max-w-3xl">
-		Esta operação é independente de paciente. O arquivo e o resultado ficam disponíveis por até 24
-		horas e não são salvos no prontuário.
-	</Alert>
-
-	{#if savedLoading || savedError || savedItems.length}
-		<Card class="mt-6 max-w-3xl">
-			<h2 class="text-base font-semibold">Extrações recentes</h2>
-			{#if savedLoading}
-				<p class="mt-2 text-sm text-on-surface-muted">Carregando resultados anteriores...</p>
-			{/if}
-			{#if savedError}<Alert variant="warning" class="mt-3">{savedError}</Alert>{/if}
-			{#if savedItems.length}
-				<ul class="mt-3 flex flex-wrap gap-2">
-					{#each savedItems as item (item.id)}
-						<li>
-							<Button
-								variant="secondary"
-								loading={openingSavedId === item.id}
-								onclick={() => openSaved(item.id)}
-							>
-								{item.kind === 'imaging' ? 'Laudo de imagem' : 'Exame laboratorial'} ·
-								{item.status === 'queued'
-									? 'Na fila · '
-									: item.status === 'processing'
-										? 'Processando · '
-										: item.status === 'failed'
-											? 'Falhou · '
-											: ''}
-								{new Intl.DateTimeFormat('pt-BR', {
-									day: '2-digit',
-									month: '2-digit',
-									hour: '2-digit',
-									minute: '2-digit'
-								}).format(new Date(item.created_at))}
-							</Button>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</Card>
-	{/if}
-
 	<div
-		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[24rem_minmax(0,1fr)]"
+		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[22rem_minmax(0,1fr)]"
 	>
-		<Card
-			class="w-full max-w-md min-w-0 @min-[56rem]/workspace:sticky @min-[56rem]/workspace:top-6"
-		>
-			<form
-				aria-labelledby="exam-upload-title"
-				onsubmit={handleSubmit}
-				ondragover={onDragOver}
-				ondragleave={onDragLeave}
-				ondrop={onDrop}
-				novalidate
-			>
-				<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
-				<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">
-					{mode === 'laboratory' ? 'Enviar exame laboratorial' : 'Enviar laudo de imagem'}
-				</h2>
-				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-					Arraste o arquivo para a área abaixo ou clique nela para escolher. A extração começa ao
-					clicar em Extrair dados.
-				</p>
-
-				<label
-					class={[
-						'mt-6 flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand',
-						dragOver
-							? 'border-brand bg-brand-container text-on-brand-container'
-							: 'border-brand/40 bg-canvas text-on-surface hover:border-brand hover:bg-brand-container/40',
-						(extractionStatus === 'processing' || checkingFile) && 'cursor-not-allowed opacity-60'
-					]}
+		<div class="flex w-full max-w-md min-w-0 flex-col gap-6">
+			<Card class="min-w-0">
+				<form
+					aria-labelledby="exam-upload-title"
+					onsubmit={handleSubmit}
+					ondragover={onDragOver}
+					ondragleave={onDragLeave}
+					ondrop={onDrop}
+					novalidate
 				>
-					<input
-						bind:this={fileInput}
-						id="exam-file"
-						name="file"
-						type="file"
-						accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
-						multiple={mode === 'imaging'}
-						required={!selectedCapture && !selectedFile}
-						disabled={extractionStatus === 'processing' || checkingFile}
-						aria-invalid={fileError ? 'true' : undefined}
-						aria-describedby={fileError ? 'exam-file-error' : 'exam-file-helper'}
-						onchange={handleFileChange}
-						class="sr-only"
-					/>
-					<svg
-						viewBox="0 0 24 24"
-						fill="none"
-						class={['size-10', dragOver ? 'text-on-brand-container' : 'text-brand']}
-						aria-hidden="true"
-					>
-						<path
-							d="M12 16V5m0 0 4 4m-4-4-4 4M5 19h14"
-							stroke="currentColor"
-							stroke-width="1.8"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/>
-					</svg>
-					<p class="mt-4 text-base font-semibold">
-						{dragOver
-							? 'Solte para selecionar'
-							: mode === 'imaging'
-								? 'Arraste o laudo para cá'
-								: 'Arraste o exame para cá'}
+					<p class="text-sm font-semibold text-brand">Arquivo temporário</p>
+					<h2 id="exam-upload-title" class="mt-2 text-lg font-semibold">
+						{mode === 'laboratory' ? 'Enviar exame laboratorial' : 'Enviar laudo de imagem'}
+					</h2>
+					<p class="mt-2 text-sm leading-6 text-on-surface-muted">
+						Arraste o arquivo para a área abaixo ou clique nela para escolher. A extração começa ao
+						clicar em Extrair dados.
 					</p>
-					<p
+
+					<label
 						class={[
-							'mt-1 text-sm leading-6',
-							dragOver ? 'text-on-brand-container' : 'text-on-surface-muted'
+							'mt-6 flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-5 py-8 text-center transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand',
+							dragOver
+								? 'border-brand bg-brand-container text-on-brand-container'
+								: 'border-brand/40 bg-canvas text-on-surface hover:border-brand hover:bg-brand-container/40',
+							(extractionStatus === 'processing' || checkingFile) && 'cursor-not-allowed opacity-60'
 						]}
 					>
-						ou clique para escolher um arquivo
-					</p>
-				</label>
-				{#if fileError}
-					<p id="exam-file-error" class="mt-2 text-sm text-danger">{fileError}</p>
-				{:else}
-					<p id="exam-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
-						{mode === 'imaging'
-							? 'Um PDF ou até 5 imagens JPEG/PNG do mesmo laudo, com até 10 MB no total. Também aceita um arquivo arrastado de Capturas.'
-							: 'PDF, JPEG ou PNG com até 10 MB. Também aceita um arquivo arrastado de Capturas.'}
-					</p>
-				{/if}
-
-				{#if captureNotice}
-					<Alert variant="warning" class="mt-4">{captureNotice}</Alert>
-				{/if}
-
-				{#if mode === 'imaging' && selectedImagingPages.length}
-					<ol class="mt-4 space-y-2" aria-label="Páginas selecionadas em ordem">
-						{#each selectedImagingPages as page, index (`${page.name}-${index}`)}
-							<li>
-								{#snippet actions()}
-									<div class="flex shrink-0 gap-1 text-sm">
-										<button
-											type="button"
-											class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-											aria-label={`Mover ${page.name} para cima`}
-											disabled={index === 0 || extractionStatus === 'processing'}
-											onclick={() => imagingExtraction.movePage(index, -1)}>↑</button
-										>
-										<button
-											type="button"
-											class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-											aria-label={`Mover ${page.name} para baixo`}
-											disabled={index === selectedImagingPages.length - 1 ||
-												extractionStatus === 'processing'}
-											onclick={() => imagingExtraction.movePage(index, 1)}>↓</button
-										>
-										<button
-											type="button"
-											class="rounded px-1 text-danger hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-											aria-label={`Remover ${page.name}`}
-											disabled={extractionStatus === 'processing'}
-											onclick={() => imagingExtraction.removePage(index)}>Remover</button
-										>
-									</div>
-								{/snippet}
-								{#if page.captureId}
-									<CapturePreviewCard
-										captureId={page.captureId}
-										name={`${index + 1}. ${page.name}`}
-										mimeType={page.mimeType}
-										sizeBytes={page.size}
-										createdAt={page.createdAt}
-										accessToken={auth.session?.access_token ?? null}
-										{actions}
-									/>
-								{:else}
-									<DocumentPreviewCard
-										name={`${index + 1}. ${page.name}`}
-										mimeType={page.mimeType}
-										sizeBytes={page.size}
-										file={page.file}
-										{actions}
-									/>
-								{/if}
-							</li>
-						{/each}
-					</ol>
-				{:else if selectedFile}
-					<DocumentPreviewCard
-						name={selectedFile.name}
-						mimeType={selectedFile.type}
-						sizeBytes={selectedFile.size}
-						file={selectedFile}
-						class="mt-4"
-					/>
-				{:else if selectedCapture}
-					<div class="mt-4">
-						<CapturePreviewCard
-							captureId={selectedCapture.id}
-							name={selectedCapture.original_filename}
-							mimeType={selectedCapture.mime_type ?? ''}
-							sizeBytes={selectedCapture.size_bytes}
-							createdAt={selectedCapture.created_at}
-							accessToken={auth.session?.access_token ?? null}
+						<input
+							bind:this={fileInput}
+							id="exam-file"
+							name="file"
+							type="file"
+							accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+							multiple
+							required={!selectedCapture && !selectedFile}
+							disabled={extractionStatus === 'processing' || checkingFile}
+							aria-invalid={fileError ? 'true' : undefined}
+							aria-describedby={fileError ? 'exam-file-error' : 'exam-file-helper'}
+							onchange={handleFileChange}
+							class="sr-only"
 						/>
-						<p class="mt-1 text-sm text-on-surface-muted">
-							Recebido pelo celular. Pronto para extrair.
-						</p>
-					</div>
-				{/if}
-
-				<Button
-					type="submit"
-					class="mt-6 w-full"
-					loading={extractionStatus === 'processing'}
-					disabled={checkingFile}
-				>
-					{extractionStatus === 'processing' ? 'Extraindo...' : 'Extrair dados'}
-				</Button>
-			</form>
-		</Card>
-
-		<Card class="min-h-96 min-w-0">
-			{#if extractionStatus === 'processing'}
-				<div
-					class="grid min-h-80 place-items-center text-center"
-					aria-live="polite"
-					aria-busy="true"
-				>
-					<div class="max-w-sm">
-						<span
-							class="mx-auto block size-10 animate-spin rounded-full border-4 border-brand/25 border-t-brand"
-							aria-hidden="true"
-						></span>
-						<h2 class="mt-5 text-lg font-semibold">
-							{mode === 'laboratory' ? 'Processando o exame' : 'Processando o laudo de imagem'}
-						</h2>
-						<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-							{extractionProgress > 0
-								? `Processando (${extractionProgress}%).`
-								: 'Aguardando processamento.'} Você pode sair desta página e voltar depois.
-						</p>
-					</div>
-				</div>
-			{:else if mode === 'laboratory' && labExtraction.result}
-				<LabExtractionResult
-					result={labExtraction.result}
-					{copyState}
-					onCopy={copySummary}
-					onStartOver={startOver}
-				/>
-			{:else if mode === 'imaging' && imagingExtraction.result}
-				<ImagingReportResult
-					result={imagingExtraction.result}
-					{copyState}
-					onCopy={copySummary}
-					onStartOver={startOver}
-				/>
-			{:else if extractionStatus === 'error'}
-				<div aria-live="polite">
-					<p class="text-sm font-semibold text-brand">Resultado</p>
-					<h2 class="mt-2 text-lg font-semibold">Não foi possível concluir a extração</h2>
-					{#if extractionProblem}
-						<Alert variant="error" class="mt-5">{problemMessage(extractionProblem)}</Alert>
-					{/if}
-					<p class="mt-4 text-sm leading-6 text-on-surface-muted">
-						O trabalho e seus arquivos continuam disponíveis até o prazo de expiração.
-					</p>
-					<Button variant="secondary" class="mt-5" onclick={retryExtraction}
-						>Tentar novamente</Button
-					>
-				</div>
-			{:else}
-				<div class="grid min-h-80 place-items-center text-center" aria-live="polite">
-					<div class="max-w-sm">
 						<svg
 							viewBox="0 0 24 24"
 							fill="none"
-							class="mx-auto size-8 text-brand"
+							class={['size-10', dragOver ? 'text-on-brand-container' : 'text-brand']}
 							aria-hidden="true"
 						>
 							<path
-								d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8m-6-6 6 6m-6-6v6h6M8 13h8m-8 4h5"
+								d="M12 16V5m0 0 4 4m-4-4-4 4M5 19h14"
 								stroke="currentColor"
 								stroke-width="1.8"
 								stroke-linecap="round"
 								stroke-linejoin="round"
 							/>
 						</svg>
-						<p class="mt-4 font-medium">
-							{mode === 'laboratory' ? 'Nenhum exame enviado' : 'Nenhum laudo enviado'}
+						<p class="mt-4 text-base font-semibold">
+							{dragOver
+								? 'Solte para selecionar'
+								: mode === 'imaging'
+									? 'Arraste o laudo para cá'
+									: 'Arraste o exame para cá'}
 						</p>
-						<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-							O resumo temporário será apresentado aqui após o processamento.
+						<p
+							class={[
+								'mt-1 text-sm leading-6',
+								dragOver ? 'text-on-brand-container' : 'text-on-surface-muted'
+							]}
+						>
+							ou clique para escolher um arquivo
 						</p>
+					</label>
+					{#if fileError}
+						<p id="exam-file-error" class="mt-2 text-sm text-danger">{fileError}</p>
+					{:else}
+						<p id="exam-file-helper" class="mt-2 text-sm leading-6 text-on-surface-muted">
+							{mode === 'imaging'
+								? 'Um PDF ou até 5 imagens JPEG/PNG do mesmo laudo, com até 10 MB no total. Também aceita um arquivo arrastado de Capturas.'
+								: 'Um PDF ou até 20 imagens JPEG/PNG do mesmo exame, com até 10 MB por imagem. Também aceita capturas arrastadas.'}
+						</p>
+					{/if}
+
+					{#if captureNotice}
+						<Alert variant="warning" class="mt-4">{captureNotice}</Alert>
+					{/if}
+
+					{#if selectedPages.length}
+						<ol class="mt-4 space-y-2" aria-label="Páginas selecionadas em ordem">
+							{#each selectedPages as page, index (`${page.name}-${index}`)}
+								<li>
+									{#snippet actions()}
+										<div class="flex shrink-0 gap-1 text-sm">
+											<button
+												type="button"
+												class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+												aria-label={`Mover ${page.name} para cima`}
+												disabled={index === 0 || extractionStatus === 'processing'}
+												onclick={() => moveSelectedPage(index, -1)}>↑</button
+											>
+											<button
+												type="button"
+												class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+												aria-label={`Mover ${page.name} para baixo`}
+												disabled={index === selectedPages.length - 1 ||
+													extractionStatus === 'processing'}
+												onclick={() => moveSelectedPage(index, 1)}>↓</button
+											>
+											<button
+												type="button"
+												class="rounded px-1 text-danger hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+												aria-label={`Remover ${page.name}`}
+												disabled={extractionStatus === 'processing'}
+												onclick={() => removeSelectedPage(index)}>Remover</button
+											>
+										</div>
+									{/snippet}
+									{#if page.captureId}
+										<CapturePreviewCard
+											captureId={page.captureId}
+											name={`${index + 1}. ${page.name}`}
+											mimeType={page.mimeType}
+											sizeBytes={page.size}
+											createdAt={page.createdAt}
+											accessToken={auth.session?.access_token ?? null}
+											{actions}
+										/>
+									{:else}
+										<DocumentPreviewCard
+											name={`${index + 1}. ${page.name}`}
+											mimeType={page.mimeType}
+											sizeBytes={page.size}
+											file={page.file}
+											{actions}
+										/>
+									{/if}
+								</li>
+							{/each}
+						</ol>
+					{:else if selectedFile}
+						<DocumentPreviewCard
+							name={selectedFile.name}
+							mimeType={selectedFile.type}
+							sizeBytes={selectedFile.size}
+							file={selectedFile}
+							class="mt-4"
+						/>
+					{:else if selectedCapture}
+						<div class="mt-4">
+							<CapturePreviewCard
+								captureId={selectedCapture.id}
+								name={selectedCapture.original_filename}
+								mimeType={selectedCapture.mime_type ?? ''}
+								sizeBytes={selectedCapture.size_bytes}
+								createdAt={selectedCapture.created_at}
+								accessToken={auth.session?.access_token ?? null}
+							/>
+							<p class="mt-1 text-sm text-on-surface-muted">
+								Recebido pelo celular. Pronto para extrair.
+							</p>
+						</div>
+					{/if}
+
+					<Button
+						type="submit"
+						class="mt-6 w-full"
+						loading={extractionStatus === 'processing'}
+						disabled={checkingFile}
+					>
+						{extractionStatus === 'processing' ? 'Extraindo...' : 'Extrair dados'}
+					</Button>
+				</form>
+			</Card>
+
+			{#if savedLoading || savedError || savedItems.length}
+				<Card class="min-w-0">
+					<h2 class="text-base font-semibold">Extrações recentes</h2>
+					{#if savedLoading}
+						<p class="mt-2 text-sm text-on-surface-muted">Carregando resultados anteriores...</p>
+					{/if}
+					{#if savedError}<Alert variant="warning" class="mt-3">{savedError}</Alert>{/if}
+					{#if savedItems.length}
+						<ul class="mt-3 max-h-96 space-y-1 overflow-y-auto">
+							{#each savedItems as item (item.id)}
+								{@const status = savedStatus(item)}
+								<li>
+									<button
+										type="button"
+										class={[
+											'flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-brand',
+											item.id === activeTemporaryId && 'bg-surface-muted'
+										]}
+										aria-current={item.id === activeTemporaryId ? 'true' : undefined}
+										aria-busy={openingSavedId === item.id || undefined}
+										onclick={() => openSaved(item.id)}
+									>
+										<span
+											class="w-14 shrink-0 rounded-md bg-brand-container px-1.5 py-0.5 text-center text-xs font-semibold text-on-brand-container"
+										>
+											{item.kind === 'imaging' ? 'Imagem' : 'Lab'}
+										</span>
+										<span class="min-w-0 flex-1">
+											<span class="block truncate text-sm font-medium" title={savedTitle(item)}
+												>{savedTitle(item)}</span
+											>
+											<span class="block text-xs text-on-surface-muted">
+												{status ? `${status} · ` : ''}<time datetime={item.created_at}
+													>{formatDateTime(item.created_at)}</time
+												>
+											</span>
+										</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</Card>
+			{/if}
+		</div>
+
+		<Card class="@container/review min-h-96 min-w-0">
+			{#if openJob}
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<p class="text-sm text-on-surface-muted">
+						Disponível até <time datetime={openJob.expires_at}
+							>{formatDateTime(openJob.expires_at)}</time
+						>
+					</p>
+					<div
+						class="inline-flex rounded-xl border border-border bg-surface-muted p-1 @min-[52rem]/review:hidden"
+						role="group"
+						aria-label="Área exibida"
+					>
+						{#each [{ id: 'result', label: 'Resultado' }, { id: 'document', label: 'Documento' }] as const as tab (tab.id)}
+							<button
+								type="button"
+								aria-pressed={reviewTab === tab.id}
+								class={reviewTab === tab.id
+									? 'rounded-lg bg-surface px-3 py-1.5 text-sm font-semibold text-on-surface shadow-sm'
+									: 'rounded-lg px-3 py-1.5 text-sm font-medium text-on-surface-muted hover:text-on-surface'}
+								onclick={() => (reviewTab = tab.id)}
+							>
+								{tab.label}
+							</button>
+						{/each}
 					</div>
 				</div>
+				<Alert variant="warning" class="mt-4">
+					Dados extraídos automaticamente. Confira com o documento original antes de qualquer uso
+					clínico.
+				</Alert>
+				<div class="mt-5 grid min-w-0 items-start gap-6 @min-[52rem]/review:grid-cols-2">
+					<div
+						class={[
+							'min-w-0 @min-[52rem]/review:sticky @min-[52rem]/review:top-6 @min-[52rem]/review:block',
+							reviewTab !== 'document' && 'hidden'
+						]}
+					>
+						{#key openJob.id}
+							<TemporaryDocumentViewer
+								extractionId={openJob.id}
+								pages={openJob.pages ?? []}
+								accessToken={auth.session?.access_token ?? null}
+							/>
+						{/key}
+					</div>
+					<div class={['min-w-0 @min-[52rem]/review:block', reviewTab !== 'result' && 'hidden']}>
+						{@render resultPane()}
+					</div>
+				</div>
+			{:else}
+				{@render resultPane()}
 			{/if}
 		</Card>
 	</div>
 </section>
+
+{#snippet resultPane()}
+	{#if extractionStatus === 'processing'}
+		<div class="grid min-h-80 place-items-center text-center" aria-live="polite" aria-busy="true">
+			<div class="max-w-sm">
+				<span
+					class="mx-auto block size-10 animate-spin rounded-full border-4 border-brand/25 border-t-brand"
+					aria-hidden="true"
+				></span>
+				<h2 class="mt-5 text-lg font-semibold">
+					{mode === 'laboratory' ? 'Processando o exame' : 'Processando o laudo de imagem'}
+				</h2>
+				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
+					{extractionProgress > 0
+						? `Processando (${extractionProgress}%).`
+						: 'Aguardando processamento.'} Você pode sair desta página e voltar depois.
+				</p>
+			</div>
+		</div>
+	{:else if mode === 'laboratory' && labExtraction.result}
+		<LabExtractionResult
+			result={labExtraction.result}
+			{copyState}
+			onCopy={copySummary}
+			onStartOver={startOver}
+		/>
+	{:else if mode === 'imaging' && imagingExtraction.result}
+		<ImagingReportResult
+			result={imagingExtraction.result}
+			{copyState}
+			onCopy={copySummary}
+			onStartOver={startOver}
+		/>
+	{:else if extractionStatus === 'error'}
+		<div aria-live="polite">
+			<p class="text-sm font-semibold text-brand">Resultado</p>
+			<h2 class="mt-2 text-lg font-semibold">Não foi possível concluir a extração</h2>
+			{#if extractionProblem}
+				<Alert variant="error" class="mt-5">{problemMessage(extractionProblem)}</Alert>
+			{/if}
+			<p class="mt-4 text-sm leading-6 text-on-surface-muted">
+				O trabalho e seus arquivos continuam disponíveis até o prazo de expiração.
+			</p>
+			<Button variant="secondary" class="mt-5" onclick={retryExtraction}>Tentar novamente</Button>
+		</div>
+	{:else}
+		<div class="grid min-h-80 place-items-center text-center" aria-live="polite">
+			<div class="max-w-sm">
+				<svg viewBox="0 0 24 24" fill="none" class="mx-auto size-8 text-brand" aria-hidden="true">
+					<path
+						d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8m-6-6 6 6m-6-6v6h6M8 13h8m-8 4h5"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+				<p class="mt-4 font-medium">
+					{mode === 'laboratory' ? 'Nenhum exame enviado' : 'Nenhum laudo enviado'}
+				</p>
+				<p class="mt-2 text-sm leading-6 text-on-surface-muted">
+					O resumo temporário será apresentado aqui após o processamento.
+				</p>
+			</div>
+		</div>
+	{/if}
+{/snippet}

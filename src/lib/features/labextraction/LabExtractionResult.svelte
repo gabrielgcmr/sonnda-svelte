@@ -50,6 +50,25 @@
 			{status.label}
 		</span>
 	</div>
+	{#if copyState === 'copied'}
+		<Alert variant="success" class="mt-4">Resumo copiado para a área de transferência.</Alert>
+	{:else if copyState === 'error'}
+		<Alert variant="error" class="mt-4">Não foi possível copiar o resumo.</Alert>
+	{/if}
+
+	{#if metadata.length}
+		<section class="mt-5" aria-labelledby="report-data-title">
+			<h3 id="report-data-title" class="font-semibold">Dados identificados no laudo</h3>
+			<dl class="mt-3 grid gap-4 rounded-xl border border-border p-4 text-sm sm:grid-cols-2">
+				{#each metadata as item (item.label)}
+					<div>
+						<dt class="text-on-surface-muted">{item.label}</dt>
+						<dd class="mt-1 font-medium text-on-surface">{item.value}</dd>
+					</div>
+				{/each}
+			</dl>
+		</section>
+	{/if}
 
 	{#if result.warnings?.length}
 		<Alert variant="warning" class="mt-5">
@@ -73,30 +92,13 @@
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h3 id="summary-title" class="font-semibold">Resumo</h3>
 			<Button variant="secondary" size="sm" onclick={onCopy} disabled={!result.summary_text.trim()}>
-				{copyState === 'copied' ? 'Copiado' : 'Copiar resumo'}
+				{copyState === 'copied' ? '✓ Resumo copiado' : 'Copiar resumo'}
 			</Button>
 		</div>
 		<p class="mt-3 max-w-prose text-sm leading-6 whitespace-pre-wrap text-on-surface">
 			{result.summary_text || 'Nenhum resumo textual foi produzido.'}
 		</p>
-		{#if copyState === 'error'}
-			<p class="mt-2 text-sm text-danger" role="alert">Não foi possível copiar o resumo.</p>
-		{/if}
 	</section>
-
-	{#if metadata.length}
-		<section class="mt-6" aria-labelledby="report-data-title">
-			<h3 id="report-data-title" class="font-semibold">Dados identificados no laudo</h3>
-			<dl class="mt-3 grid gap-4 rounded-xl border border-border p-4 text-sm sm:grid-cols-2">
-				{#each metadata as item (item.label)}
-					<div>
-						<dt class="text-on-surface-muted">{item.label}</dt>
-						<dd class="mt-1 font-medium text-on-surface">{item.value}</dd>
-					</div>
-				{/each}
-			</dl>
-		</section>
-	{/if}
 
 	<section class="mt-6" aria-labelledby="structured-results-title">
 		<h3 id="structured-results-title" class="font-semibold">Resultados estruturados</h3>
@@ -111,7 +113,12 @@
 				{#each tests as test, testIndex (`${test.test_name}-${testIndex}`)}
 					<article class="overflow-hidden rounded-xl border border-border">
 						<div class="bg-surface-muted px-4 py-3">
-							<h4 class="font-semibold">{test.test_name}</h4>
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<h4 class="font-semibold">{test.test_name}</h4>
+								{#if test.source_page}<span class="text-xs text-on-surface-muted"
+										>Página {test.source_page}</span
+									>{/if}
+							</div>
 							{#if test.material || test.method || test.collected_at || test.release_at}
 								<p class="mt-1 text-xs leading-5 text-on-surface-muted">
 									{[
@@ -131,7 +138,8 @@
 									<thead class="border-y border-border text-xs text-on-surface-muted">
 										<tr>
 											<th class="w-2/5 px-4 py-2 font-medium">Parâmetro</th>
-											<th class="px-4 py-2 font-medium">Resultado</th>
+											<th class="w-1/4 px-4 py-2 font-medium">Resultado</th>
+											<th class="px-4 py-2 font-medium">Referência</th>
 										</tr>
 									</thead>
 									<tbody class="divide-y divide-border">
@@ -142,12 +150,9 @@
 													{item.result_value ?? '—'}{#if item.result_unit}
 														{` ${item.result_unit}`}
 													{/if}
-													{#if item.result_value && item.reference_text}
-														<span class="text-on-surface-muted">
-															(referência: {item.reference_text})</span
-														>
-													{/if}
 												</td>
+												<td class="px-4 py-3 text-on-surface-muted">{item.reference_text || '—'}</td
+												>
 											</tr>
 										{/each}
 									</tbody>

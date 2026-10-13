@@ -25,6 +25,7 @@
 	);
 	const metadata = $derived(
 		[
+			{ label: 'Paciente', value: report.patient_name },
 			{ label: 'Exame', value: report.exam_name },
 			{ label: 'Região anatômica', value: report.body_region },
 			{ label: 'Data', value: formatImagingDate(report.exam_date) },
@@ -53,6 +54,25 @@
 			{status.label}
 		</span>
 	</div>
+	{#if copyState === 'copied'}
+		<Alert variant="success" class="mt-4">Resumo copiado para a área de transferência.</Alert>
+	{:else if copyState === 'error'}
+		<Alert variant="error" class="mt-4">Não foi possível copiar o resumo.</Alert>
+	{/if}
+
+	{#if metadata.length}
+		<section class="mt-5" aria-labelledby="imaging-report-data-title">
+			<h3 id="imaging-report-data-title" class="font-semibold">Dados identificados no laudo</h3>
+			<dl class="mt-3 grid gap-4 rounded-xl border border-border p-4 text-sm sm:grid-cols-2">
+				{#each metadata as item (item.label)}
+					<div>
+						<dt class="text-on-surface-muted">{item.label}</dt>
+						<dd class="mt-1 font-medium">{item.value}</dd>
+					</div>
+				{/each}
+			</dl>
+		</section>
+	{/if}
 
 	{#if result.warnings?.length}
 		<Alert variant="warning" class="mt-5">
@@ -72,27 +92,13 @@
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<h3 id="imaging-summary-title" class="font-semibold">Resumo</h3>
 			<Button variant="secondary" size="sm" onclick={onCopy} disabled={!result.summary_text.trim()}>
-				{copyState === 'copied' ? 'Copiado' : 'Copiar resumo'}
+				{copyState === 'copied' ? '✓ Resumo copiado' : 'Copiar resumo'}
 			</Button>
 		</div>
 		<p class="mt-3 max-w-prose text-sm leading-6 whitespace-pre-wrap text-on-surface">
 			{result.summary_text || 'Nenhum resumo textual foi produzido.'}
 		</p>
-		{#if copyState === 'error'}
-			<p class="mt-2 text-sm text-danger" role="alert">Não foi possível copiar o resumo.</p>
-		{/if}
 	</section>
-
-	{#if metadata.length}
-		<dl class="mt-6 grid gap-4 rounded-xl border border-border p-4 text-sm sm:grid-cols-2">
-			{#each metadata as item (item.label)}
-				<div>
-					<dt class="text-on-surface-muted">{item.label}</dt>
-					<dd class="mt-1 font-medium">{item.value}</dd>
-				</div>
-			{/each}
-		</dl>
-	{/if}
 
 	{#if report.technique_text}
 		<section class="mt-6" aria-labelledby="imaging-technique-title">
