@@ -27,7 +27,7 @@
 
 <section class="min-w-0 p-4" aria-labelledby="patient-name">
 	<p class="text-xs font-semibold tracking-wide text-brand uppercase">Paciente</p>
-	<h1 id="patient-name" class="mt-1 text-lg font-semibold tracking-tight break-words">
+	<h1 id="patient-name" class="mt-1 text-lg font-semibold tracking-tight wrap-break-word">
 		{fullName || 'Dados do paciente pendentes'}
 	</h1>
 	{#if !fullName}
@@ -51,7 +51,7 @@
 		</div>
 		<div>
 			<dt class="text-on-surface-muted">Telefone</dt>
-			<dd class="mt-1 font-medium break-words text-on-surface">{valueOrDash(phone)}</dd>
+			<dd class="mt-1 font-medium wrap-break-word text-on-surface">{valueOrDash(phone)}</dd>
 		</div>
 	</dl>
 
@@ -68,7 +68,7 @@
 			</div>
 			<div>
 				<dt class="text-on-surface-muted">CNS</dt>
-				<dd class="mt-1 font-medium break-words text-on-surface">{valueOrDash(cns)}</dd>
+				<dd class="mt-1 font-medium wrap-break-word text-on-surface">{valueOrDash(cns)}</dd>
 			</div>
 			<div>
 				<dt class="text-on-surface-muted">Gênero</dt>

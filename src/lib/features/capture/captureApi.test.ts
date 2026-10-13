@@ -1,4 +1,5 @@
 // src/lib/features/capture/captureApi.test.ts
+import { PUBLIC_API_URL } from '$app/env/public';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	captureCredentialRejected,
@@ -30,7 +31,7 @@ describe('claimCaptureSession', () => {
 
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe('http://localhost:8080/capture-sessions/claim');
+		expect(url).toBe(`${PUBLIC_API_URL}/capture-sessions/claim`);
 		expect(init.method).toBe('POST');
 		expect(init.headers).toEqual({
 			accept: 'application/json',
@@ -88,7 +89,7 @@ describe('sendMobileHeartbeat', () => {
 		const result = await sendMobileHeartbeat('session/1', 'upload-token');
 
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(url).toBe('http://localhost:8080/capture-sessions/session%2F1/mobile-heartbeat');
+		expect(url).toBe(`${PUBLIC_API_URL}/capture-sessions/session%2F1/mobile-heartbeat`);
 		expect(init.method).toBe('POST');
 		expect(init.headers).toEqual({
 			accept: 'application/json',
@@ -197,7 +198,7 @@ describe('uploadCaptureFile', () => {
 		);
 
 		expect(sent?.method).toBe('POST');
-		expect(sent?.url).toBe('http://localhost:8080/captures');
+		expect(sent?.url).toBe(`${PUBLIC_API_URL}/captures`);
 		expect(sent?.headers).toEqual({
 			accept: 'application/json',
 			'X-Capture-Token': 'upload-token'

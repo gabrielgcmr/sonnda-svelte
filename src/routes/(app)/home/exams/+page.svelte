@@ -10,6 +10,12 @@
 	} from '#lib/features/capture/captureDrag.js';
 	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
 	import CapturePreviewCard from '#lib/features/capture/CapturePreviewCard.svelte';
+	import {
+		getTemporaryExtraction,
+		listTemporaryExtractions,
+		retryTemporaryExtraction
+	} from '#lib/features/documentprocessing/temporaryExtractionApi.js';
+	import type { components } from '#lib/generated/openapi.js';
 	import ImagingReportResult from '#lib/features/imagingextraction/ImagingReportResult.svelte';
 	import { copyImagingSummary } from '#lib/features/imagingextraction/presentation.js';
 	import { ImagingExtractionState } from '#lib/features/imagingextraction/imagingExtraction.svelte.js';
@@ -68,10 +74,21 @@
 	const extractionProblem = $derived(
 		mode === 'laboratory' ? labExtraction.problem : imagingExtraction.problem
 	);
+	const activeTemporaryId = $derived(
+		mode === 'laboratory' ? labExtraction.temporaryId : imagingExtraction.temporaryId
+	);
+	const extractionProgress = $derived(
+		mode === 'laboratory' ? labExtraction.progress : imagingExtraction.progress
+	);
 	let fileInput = $state<HTMLInputElement>();
 	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
 	let captureNotice = $state<string | null>(null);
 	let dragOver = $state(false);
+	let savedItems = $state<components['schemas']['TemporaryResultResponse'][]>([]);
+	let savedLoading = $state(false);
+	let savedError = $state<string | null>(null);
+	let openingSavedId = $state<string | null>(null);
+	let savedRequestVersion = 0;
 
 	$effect(() => {
 		const labAccountChanged = labExtraction.bindAccount(accountId);
@@ -81,6 +98,114 @@
 		copyState = 'idle';
 		captureNotice = null;
 	});
+	$effect(() => {
+		const id = activeTemporaryId;
+		const account = accountId;
+		const token = auth.session?.access_token;
+		if (!id || !account || !token || extractionStatus !== 'processing') return;
+		let stopped = false;
+		const poll = async () => {
+			try {
+				const { data, error } = await getTemporaryExtraction(token, id);
+				if (stopped || accountId !== account || activeTemporaryId !== id) return;
+				if (error?.status === 404) {
+					if (mode === 'laboratory') labExtraction.startOver();
+					else imagingExtraction.startOver();
+					savedError = 'Este trabalho expirou ou não está mais disponível.';
+					void refreshSaved(token, account);
+					return;
+				}
+				if (!data) return;
+				if (data.status === 'completed' || data.status === 'failed') {
+					await openSaved(id, token, account);
+					void refreshSaved(token, account);
+				} else if (mode === 'laboratory') labExtraction.progress = data.progress;
+				else imagingExtraction.progress = data.progress;
+			} catch {
+				// A falha de rede não encerra o trabalho no servidor.
+			}
+		};
+		const timer = setInterval(() => void poll(), 3000);
+		void poll();
+		return () => {
+			stopped = true;
+			clearInterval(timer);
+		};
+	});
+	$effect(() => {
+		const id = accountId;
+		const token = auth.session?.access_token;
+		const version = ++savedRequestVersion;
+		savedItems = [];
+		savedError = null;
+		if (!id || !token) return;
+		savedLoading = true;
+		void listTemporaryExtractions(token)
+			.then(async ({ data, error }) => {
+				if (version !== savedRequestVersion || accountId !== id) return;
+				if (error || !data) {
+					savedError = 'Não foi possível consultar as extrações anteriores.';
+					return;
+				}
+				savedItems = data.items ?? [];
+				if (savedItems[0] && extractionStatus === 'idle' && !selectedFile && !selectedCapture) {
+					await openSaved(savedItems[0].id, token, id);
+				}
+			})
+			.catch(() => {
+				if (version === savedRequestVersion)
+					savedError = 'Não foi possível consultar as extrações anteriores.';
+			})
+			.finally(() => {
+				if (version === savedRequestVersion) savedLoading = false;
+			});
+		return () => {
+			savedRequestVersion += 1;
+		};
+	});
+
+	async function refreshSaved(token: string, id: string) {
+		try {
+			const { data } = await listTemporaryExtractions(token);
+			if (accountId === id && data) savedItems = data.items ?? [];
+		} catch {
+			if (accountId === id) savedError = 'Não foi possível atualizar as extrações recentes.';
+		}
+	}
+
+	async function openSaved(id: string, token = auth.session?.access_token, account = accountId) {
+		if (!token || !account) return;
+		openingSavedId = id;
+		try {
+			const { data, error } = await getTemporaryExtraction(token, id);
+			if (accountId !== account || auth.session?.access_token !== token) return;
+			if (error || !data) {
+				savedError = 'Este resultado não está mais disponível.';
+				void refreshSaved(token, account);
+				return;
+			}
+			labExtraction.startOver();
+			imagingExtraction.startOver();
+			mode = data.kind === 'imaging' ? 'imaging' : 'laboratory';
+			if (data.lab_result) labExtraction.restore(data.lab_result, data.id);
+			if (data.imaging_result) imagingExtraction.restore(data.imaging_result, data.id);
+			if (data.status === 'queued' || data.status === 'processing') {
+				if (data.kind === 'laboratory') labExtraction.restorePending(data.id, data.progress);
+				else imagingExtraction.restorePending(data.id, data.progress);
+			}
+			if (data.status === 'failed') {
+				const message = data.error_message || 'Não foi possível concluir a extração.';
+				if (data.kind === 'laboratory') labExtraction.restoreFailure(data.id, message);
+				else imagingExtraction.restoreFailure(data.id, message);
+			}
+			copyState = 'idle';
+			savedError = null;
+		} catch {
+			if (accountId === account) savedError = 'Não foi possível abrir este resultado.';
+		} finally {
+			if (openingSavedId === id) openingSavedId = null;
+		}
+	}
 	onDestroy(() => {
 		labExtraction.clear();
 		imagingExtraction.clear();
@@ -188,7 +313,31 @@
 		}
 		if (!accessToken || !accountId || extractionStatus === 'processing') return;
 		copyState = 'idle';
-		await activeExtraction.extract(accessToken, accountId);
+		const completed = await activeExtraction.extract(accessToken, accountId);
+		if (completed) void refreshSaved(accessToken, accountId);
+	}
+
+	async function retryExtraction() {
+		const id = activeTemporaryId;
+		const token = auth.session?.access_token;
+		const account = accountId;
+		if (!id || !token || !account) {
+			await runExtraction();
+			return;
+		}
+		try {
+			const { data, error } = await retryTemporaryExtraction(token, id);
+			if (accountId !== account || activeTemporaryId !== id) return;
+			if (error || !data) {
+				savedError = 'Não foi possível tentar novamente este trabalho.';
+				return;
+			}
+			if (mode === 'laboratory') labExtraction.restorePending(id, 0);
+			else imagingExtraction.restorePending(id, 0);
+			void refreshSaved(token, account);
+		} catch {
+			if (accountId === account) savedError = 'Não foi possível conectar à API.';
+		}
 	}
 
 	async function copySummary() {
@@ -265,9 +414,47 @@
 	</p>
 
 	<Alert variant="info" class="mt-6 max-w-3xl">
-		Esta operação é independente de paciente. O arquivo e o resultado são temporários e não são
-		salvos no prontuário.
+		Esta operação é independente de paciente. O arquivo e o resultado ficam disponíveis por até 24
+		horas e não são salvos no prontuário.
 	</Alert>
+
+	{#if savedLoading || savedError || savedItems.length}
+		<Card class="mt-6 max-w-3xl">
+			<h2 class="text-base font-semibold">Extrações recentes</h2>
+			{#if savedLoading}
+				<p class="mt-2 text-sm text-on-surface-muted">Carregando resultados anteriores...</p>
+			{/if}
+			{#if savedError}<Alert variant="warning" class="mt-3">{savedError}</Alert>{/if}
+			{#if savedItems.length}
+				<ul class="mt-3 flex flex-wrap gap-2">
+					{#each savedItems as item (item.id)}
+						<li>
+							<Button
+								variant="secondary"
+								loading={openingSavedId === item.id}
+								onclick={() => openSaved(item.id)}
+							>
+								{item.kind === 'imaging' ? 'Laudo de imagem' : 'Exame laboratorial'} ·
+								{item.status === 'queued'
+									? 'Na fila · '
+									: item.status === 'processing'
+										? 'Processando · '
+										: item.status === 'failed'
+											? 'Falhou · '
+											: ''}
+								{new Intl.DateTimeFormat('pt-BR', {
+									day: '2-digit',
+									month: '2-digit',
+									hour: '2-digit',
+									minute: '2-digit'
+								}).format(new Date(item.created_at))}
+							</Button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Card>
+	{/if}
 
 	<div
 		class="mt-8 grid min-w-0 items-start gap-6 @min-[56rem]/workspace:grid-cols-[24rem_minmax(0,1fr)]"
@@ -462,7 +649,9 @@
 							{mode === 'laboratory' ? 'Processando o exame' : 'Processando o laudo de imagem'}
 						</h2>
 						<p class="mt-2 text-sm leading-6 text-on-surface-muted">
-							A extração pode levar alguns instantes. Mantenha esta página aberta.
+							{extractionProgress > 0
+								? `Processando (${extractionProgress}%).`
+								: 'Aguardando processamento.'} Você pode sair desta página e voltar depois.
 						</p>
 					</div>
 				</div>
@@ -488,9 +677,11 @@
 						<Alert variant="error" class="mt-5">{problemMessage(extractionProblem)}</Alert>
 					{/if}
 					<p class="mt-4 text-sm leading-6 text-on-surface-muted">
-						O arquivo selecionado foi mantido apenas nesta página para você tentar novamente.
+						O trabalho e seus arquivos continuam disponíveis até o prazo de expiração.
 					</p>
-					<Button variant="secondary" class="mt-5" onclick={runExtraction}>Tentar novamente</Button>
+					<Button variant="secondary" class="mt-5" onclick={retryExtraction}
+						>Tentar novamente</Button
+					>
 				</div>
 			{:else}
 				<div class="grid min-h-80 place-items-center text-center" aria-live="polite">

@@ -1,17 +1,19 @@
 // src/lib/features/labextraction/labExtraction.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { extractStandaloneLabReport, extractLabReportFromCapture, validateLabDocument } = vi.hoisted(
-	() => ({
-		extractStandaloneLabReport: vi.fn(),
-		extractLabReportFromCapture: vi.fn(),
-		validateLabDocument: vi.fn()
-	})
-);
+const {
+	createTemporaryExtractionFromFiles,
+	createTemporaryExtractionFromCaptures,
+	validateLabDocument
+} = vi.hoisted(() => ({
+	createTemporaryExtractionFromFiles: vi.fn(),
+	createTemporaryExtractionFromCaptures: vi.fn(),
+	validateLabDocument: vi.fn()
+}));
 
-vi.mock('./labExtractionApi.js', () => ({
-	extractStandaloneLabReport,
-	extractLabReportFromCapture
+vi.mock('../documentprocessing/temporaryExtractionApi.js', () => ({
+	createTemporaryExtractionFromFiles,
+	createTemporaryExtractionFromCaptures
 }));
 vi.mock('./fileValidation.js', () => ({ validateLabDocument }));
 
@@ -56,8 +58,8 @@ const pdf = (name = 'exam.pdf') => new File(['%PDF-1.4'], name, { type: 'applica
 const capture = { id: 'capture-1', original_filename: 'exame-celular.pdf' };
 
 beforeEach(() => {
-	extractStandaloneLabReport.mockReset();
-	extractLabReportFromCapture.mockReset();
+	createTemporaryExtractionFromFiles.mockReset();
+	createTemporaryExtractionFromCaptures.mockReset();
 	validateLabDocument.mockReset();
 	validateLabDocument.mockResolvedValue({ valid: true });
 });
@@ -78,21 +80,39 @@ describe('LabExtractionState', () => {
 		const state = new LabExtractionState();
 		const file = pdf();
 		await state.selectFile(file);
-		extractStandaloneLabReport.mockResolvedValue({ data: result('partial') });
+		createTemporaryExtractionFromFiles.mockResolvedValue({
+			data: { id: 'saved-1', lab_result: result('partial') }
+		});
 
 		expect(await state.extract('token', 'account-a')).toBe(true);
 
-		expect(extractStandaloneLabReport).toHaveBeenCalledWith('token', file);
+		expect(createTemporaryExtractionFromFiles).toHaveBeenCalledWith('token', 'laboratory', [file]);
+		expect(state.temporaryId).toBe('saved-1');
 		expect(state.status).toBe('ready');
 		expect(state.result?.status).toBe('partial');
 		expect(state.result?.warnings).toHaveLength(1);
+	});
+
+	it('keeps the durable job id while extraction continues in the server', async () => {
+		const state = new LabExtractionState();
+		await state.selectFile(pdf());
+		createTemporaryExtractionFromFiles.mockResolvedValue({
+			data: { id: 'job-1', status: 'queued', progress: 0 }
+		});
+		expect(await state.extract('token', 'account-a')).toBe(true);
+		expect(state.temporaryId).toBe('job-1');
+		expect(state.status).toBe('processing');
+		state.restorePending('job-1', 10);
+		expect(state.progress).toBe(10);
+		state.restoreFailure('job-1', 'Falha de leitura.');
+		expect(state.problem?.title).toBe('Falha de leitura.');
 	});
 
 	it('preserves public API problems and the selected file for retry', async () => {
 		const state = new LabExtractionState();
 		const file = pdf();
 		await state.selectFile(file);
-		extractStandaloneLabReport.mockResolvedValue({
+		createTemporaryExtractionFromFiles.mockResolvedValue({
 			error: { type: 'about:blank', title: 'Arquivo inválido', status: 422 }
 		});
 
@@ -106,13 +126,13 @@ describe('LabExtractionState', () => {
 		const state = new LabExtractionState();
 		await state.selectFile(pdf());
 		let resolveExtraction!: (value: unknown) => void;
-		extractStandaloneLabReport.mockReturnValue(
+		createTemporaryExtractionFromFiles.mockReturnValue(
 			new Promise((resolve) => (resolveExtraction = resolve))
 		);
 
 		const extraction = state.extract('old-token', 'account-a');
 		state.bindAccount('account-b');
-		resolveExtraction({ data: result() });
+		resolveExtraction({ data: { id: 'saved-1', lab_result: result() } });
 
 		expect(await extraction).toBe(false);
 		expect(state.accountId).toBe('account-b');
@@ -124,7 +144,9 @@ describe('LabExtractionState', () => {
 	it('clears the file and result when starting another extraction', async () => {
 		const state = new LabExtractionState();
 		await state.selectFile(pdf());
-		extractStandaloneLabReport.mockResolvedValue({ data: result() });
+		createTemporaryExtractionFromFiles.mockResolvedValue({
+			data: { id: 'saved-1', lab_result: result() }
+		});
 		await state.extract('token', 'account-a');
 
 		state.startOver();
@@ -138,21 +160,25 @@ describe('LabExtractionState', () => {
 	it('extracts a capture by id without sending a file', async () => {
 		const state = new LabExtractionState();
 		await state.selectFile(pdf());
-		extractLabReportFromCapture.mockResolvedValue({ data: result() });
+		createTemporaryExtractionFromCaptures.mockResolvedValue({
+			data: { id: 'saved-1', lab_result: result() }
+		});
 
 		state.selectCapture(capture);
 		expect(state.file).toBeNull();
 		expect(await state.extract('token', 'account-a')).toBe(true);
 
-		expect(extractLabReportFromCapture).toHaveBeenCalledWith('token', 'capture-1');
-		expect(extractStandaloneLabReport).not.toHaveBeenCalled();
+		expect(createTemporaryExtractionFromCaptures).toHaveBeenCalledWith('token', 'laboratory', [
+			'capture-1'
+		]);
+		expect(createTemporaryExtractionFromFiles).not.toHaveBeenCalled();
 		expect(state.status).toBe('ready');
 	});
 
 	it('keeps the capture selected for retry after an API problem', async () => {
 		const state = new LabExtractionState();
 		state.selectCapture(capture);
-		extractLabReportFromCapture.mockResolvedValue({
+		createTemporaryExtractionFromCaptures.mockResolvedValue({
 			error: { type: 'about:blank', title: 'Captura não encontrada', status: 404 }
 		});
 
@@ -165,14 +191,14 @@ describe('LabExtractionState', () => {
 		const state = new LabExtractionState();
 		state.selectCapture(capture);
 		let resolveExtraction!: (value: unknown) => void;
-		extractLabReportFromCapture.mockReturnValue(
+		createTemporaryExtractionFromCaptures.mockReturnValue(
 			new Promise((resolve) => (resolveExtraction = resolve))
 		);
 
 		const extraction = state.extract('token', 'account-a');
 		const file = pdf('local.pdf');
 		await state.selectFile(file);
-		resolveExtraction({ data: result() });
+		resolveExtraction({ data: { id: 'saved-1', lab_result: result() } });
 
 		expect(await extraction).toBe(false);
 		expect(state.capture).toBeNull();
@@ -186,6 +212,6 @@ describe('LabExtractionState', () => {
 
 		expect(await state.extract('token', 'account-a')).toBe(false);
 		expect(state.fileError).toBe('Selecione um arquivo PDF, JPEG ou PNG para continuar.');
-		expect(extractStandaloneLabReport).not.toHaveBeenCalled();
+		expect(createTemporaryExtractionFromFiles).not.toHaveBeenCalled();
 	});
 });

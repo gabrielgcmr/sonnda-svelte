@@ -1,10 +1,8 @@
 // src/lib/features/imagingextraction/imagingExtraction.svelte.ts
 import {
-	extractImagingReportFromCapture,
-	extractImagingReportFromCaptures,
-	extractImagingReportPages,
-	extractStandaloneImagingReport
-} from './imagingExtractionApi.js';
+	createTemporaryExtractionFromCaptures,
+	createTemporaryExtractionFromFiles
+} from '#lib/features/documentprocessing/temporaryExtractionApi.js';
 import { MAX_DOCUMENT_BYTES, validateDocument } from '../documentprocessing/fileValidation.js';
 import type {
 	ImagingExtractionCapture,
@@ -27,6 +25,8 @@ export class ImagingExtractionState {
 	checkingFile = $state(false);
 	status = $state<ImagingExtractionStatus>('idle');
 	result = $state.raw<ImagingReportResult | null>(null);
+	temporaryId = $state<string | null>(null);
+	progress = $state(0);
 	problem = $state.raw<ImagingExtractionProblem | null>(null);
 
 	#selectionVersion = 0;
@@ -43,6 +43,8 @@ export class ImagingExtractionState {
 		this.checkingFile = false;
 		this.status = 'idle';
 		this.result = null;
+		this.temporaryId = null;
+		this.progress = 0;
 		this.problem = null;
 	}
 
@@ -60,6 +62,28 @@ export class ImagingExtractionState {
 
 	startOver() {
 		this.#resetContent();
+	}
+
+	restore(result: ImagingReportResult, id: string) {
+		this.#resetContent();
+		this.result = result;
+		this.temporaryId = id;
+		this.status = 'ready';
+		this.progress = 100;
+	}
+
+	restorePending(id: string, progress: number) {
+		this.#resetContent();
+		this.temporaryId = id;
+		this.progress = progress;
+		this.status = 'processing';
+	}
+
+	restoreFailure(id: string, message: string) {
+		this.#resetContent();
+		this.temporaryId = id;
+		this.problem = fallbackProblem(message);
+		this.status = 'error';
 	}
 
 	requireFile() {
@@ -137,6 +161,7 @@ export class ImagingExtractionState {
 	removePage(index: number) {
 		this.#requestVersion += 1;
 		this.result = null;
+		this.temporaryId = null;
 		this.problem = null;
 		this.status = 'idle';
 		if (this.files.length) {
@@ -156,6 +181,8 @@ export class ImagingExtractionState {
 		[ordered[index], ordered[target]] = [ordered[target], ordered[index]];
 		this.#requestVersion += 1;
 		this.result = null;
+		this.temporaryId = null;
+		this.progress = 0;
 		this.problem = null;
 		this.status = 'idle';
 		if (this.files.length) {
@@ -182,17 +209,21 @@ export class ImagingExtractionState {
 		const selectedCaptures = this.captures;
 		const request =
 			selectedFiles.length > 1
-				? () => extractImagingReportPages(accessToken, selectedFiles)
+				? () => createTemporaryExtractionFromFiles(accessToken, 'imaging', selectedFiles)
 				: selectedFile
-					? () => extractStandaloneImagingReport(accessToken, selectedFile)
+					? () => createTemporaryExtractionFromFiles(accessToken, 'imaging', [selectedFile])
 					: selectedCaptures.length > 1
 						? () =>
-								extractImagingReportFromCaptures(
+								createTemporaryExtractionFromCaptures(
 									accessToken,
+									'imaging',
 									selectedCaptures.map((item) => item.id)
 								)
 						: selectedCapture
-							? () => extractImagingReportFromCapture(accessToken, selectedCapture.id)
+							? () =>
+									createTemporaryExtractionFromCaptures(accessToken, 'imaging', [
+										selectedCapture.id
+									])
 							: null;
 		if (!request) return false;
 
@@ -211,9 +242,19 @@ export class ImagingExtractionState {
 		try {
 			const response = await request();
 			if (!isCurrent()) return false;
-			if (response.data) {
-				this.result = response.data;
+			if (response.data?.imaging_result) {
+				this.result = response.data.imaging_result;
+				this.temporaryId = response.data.id;
 				this.status = 'ready';
+				this.progress = 100;
+				return true;
+			}
+			if (
+				response.data &&
+				(response.data.status === 'queued' || response.data.status === 'processing')
+			) {
+				this.temporaryId = response.data.id;
+				this.progress = response.data.progress;
 				return true;
 			}
 			this.problem =

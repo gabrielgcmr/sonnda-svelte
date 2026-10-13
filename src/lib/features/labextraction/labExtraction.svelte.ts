@@ -1,5 +1,8 @@
 // src/lib/features/labextraction/labExtraction.svelte.ts
-import { extractLabReportFromCapture, extractStandaloneLabReport } from './labExtractionApi.js';
+import {
+	createTemporaryExtractionFromCaptures,
+	createTemporaryExtractionFromFiles
+} from '#lib/features/documentprocessing/temporaryExtractionApi.js';
 import { validateLabDocument } from './fileValidation.js';
 import type {
 	LabExtractionCapture,
@@ -20,6 +23,8 @@ export class LabExtractionState {
 	checkingFile = $state(false);
 	status = $state<LabExtractionStatus>('idle');
 	result = $state.raw<LabExtractionResult | null>(null);
+	temporaryId = $state<string | null>(null);
+	progress = $state(0);
 	problem = $state.raw<LabExtractionProblem | null>(null);
 
 	#selectionVersion = 0;
@@ -34,6 +39,8 @@ export class LabExtractionState {
 		this.checkingFile = false;
 		this.status = 'idle';
 		this.result = null;
+		this.temporaryId = null;
+		this.progress = 0;
 		this.problem = null;
 	}
 
@@ -53,6 +60,28 @@ export class LabExtractionState {
 		this.#resetContent();
 	}
 
+	restore(result: LabExtractionResult, id: string) {
+		this.#resetContent();
+		this.result = result;
+		this.temporaryId = id;
+		this.status = 'ready';
+		this.progress = 100;
+	}
+
+	restorePending(id: string, progress: number) {
+		this.#resetContent();
+		this.temporaryId = id;
+		this.progress = progress;
+		this.status = 'processing';
+	}
+
+	restoreFailure(id: string, message: string) {
+		this.#resetContent();
+		this.temporaryId = id;
+		this.problem = fallbackProblem(message);
+		this.status = 'error';
+	}
+
 	requireFile() {
 		if (this.file || this.capture) return true;
 		this.fileError = 'Selecione um arquivo PDF, JPEG ou PNG para continuar.';
@@ -67,6 +96,7 @@ export class LabExtractionState {
 		this.fileError = null;
 		this.status = 'idle';
 		this.result = null;
+		this.temporaryId = null;
 		this.problem = null;
 
 		if (!file) return false;
@@ -108,9 +138,10 @@ export class LabExtractionState {
 		const selectedFile = this.file;
 		const selectedCapture = this.capture;
 		const request = selectedFile
-			? () => extractStandaloneLabReport(accessToken, selectedFile)
+			? () => createTemporaryExtractionFromFiles(accessToken, 'laboratory', [selectedFile])
 			: selectedCapture
-				? () => extractLabReportFromCapture(accessToken, selectedCapture.id)
+				? () =>
+						createTemporaryExtractionFromCaptures(accessToken, 'laboratory', [selectedCapture.id])
 				: null;
 		if (!request) return false;
 
@@ -122,15 +153,24 @@ export class LabExtractionState {
 			this.capture === selectedCapture;
 		this.status = 'processing';
 		this.result = null;
+		this.temporaryId = null;
+		this.progress = 0;
 		this.problem = null;
 
 		try {
 			const { data, error } = await request();
 			if (!isCurrent()) return false;
 
-			if (data) {
-				this.result = data;
+			if (data?.lab_result) {
+				this.result = data.lab_result;
+				this.temporaryId = data.id;
 				this.status = 'ready';
+				this.progress = 100;
+				return true;
+			}
+			if (data && (data.status === 'queued' || data.status === 'processing')) {
+				this.temporaryId = data.id;
+				this.progress = data.progress;
 				return true;
 			}
 
