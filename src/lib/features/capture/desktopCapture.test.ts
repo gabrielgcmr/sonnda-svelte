@@ -229,6 +229,26 @@ describe('DesktopCaptureConnection', () => {
 });
 
 describe('CaptureLibrary', () => {
+	it('keeps the same items when polling returns unchanged captures', async () => {
+		listCaptures
+			.mockResolvedValueOnce(page([pdfCapture]))
+			.mockResolvedValueOnce(page([{ ...pdfCapture }]))
+			.mockResolvedValueOnce(page([{ ...pdfCapture, original_filename: 'renomeado.pdf' }]));
+		const library = new CaptureLibrary();
+		library.bindAccount('account-a', 'token-a');
+
+		await library.open();
+		const originalItems = library.items;
+		await library.refresh();
+		expect(library.items).toBe(originalItems);
+		expect(library.items[0]).toBe(pdfCapture);
+
+		await library.refresh();
+		expect(library.items[0].original_filename).toBe('renomeado.pdf');
+		expect(library.items).not.toBe(originalItems);
+		library.close();
+	});
+
 	it('keeps the loaded files when a later update fails and appends the next page', async () => {
 		const second = { ...pdfCapture, id: 'capture-2', original_filename: 'outro.pdf' };
 		listCaptures

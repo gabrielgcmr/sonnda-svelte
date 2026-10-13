@@ -93,7 +93,7 @@ export class LabExtractionState {
 	/** The API reads the capture on the server; only its id leaves the browser. */
 	selectCapture(capture: LabExtractionCapture) {
 		this.#resetContent();
-		this.capture = { id: capture.id, original_filename: capture.original_filename };
+		this.capture = { ...capture };
 	}
 
 	async extract(accessToken: string, accountId: string) {

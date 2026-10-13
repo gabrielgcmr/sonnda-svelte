@@ -1,13 +1,13 @@
 <!-- src/lib/features/capture/CaptureInboxPanel.svelte -->
 <script lang="ts">
 	import QRCode from 'qrcode';
+	import { auth } from '#lib/features/auth/auth.svelte.js';
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
-	import { formatFileSize } from '#lib/ui/formatFileSize.js';
 	import type { CaptureLibrary } from './captureLibrary.svelte.js';
-	import { writeCaptureDrag } from './captureDrag.js';
+	import CaptureInboxItem from './CaptureInboxItem.svelte';
 	import { capturePairingUrl } from './desktopCaptureApi.js';
-	import type { DesktopCaptureConnection, InboxCapture } from './desktopCapture.svelte.js';
+	import type { DesktopCaptureConnection } from './desktopCapture.svelte.js';
 
 	type Props = {
 		connection: DesktopCaptureConnection;
@@ -29,23 +29,6 @@
 			void QRCode.toCanvas(node, url, { width: 220, margin: 1 });
 		};
 	});
-
-	function kindLabel(mimeType: string) {
-		if (mimeType === 'application/pdf') return 'PDF';
-		if (mimeType === 'image/jpeg') return 'JPEG';
-		if (mimeType === 'image/png') return 'PNG';
-		return 'Arquivo';
-	}
-
-	function startDrag(event: DragEvent, item: InboxCapture) {
-		if (!event.dataTransfer) return;
-		writeCaptureDrag(event.dataTransfer, {
-			id: item.id,
-			name: item.original_filename,
-			mimeType: item.mime_type,
-			sizeBytes: item.size_bytes
-		});
-	}
 </script>
 
 <div id="capture-inbox-panel" aria-labelledby="capture-inbox-title">
@@ -105,16 +88,7 @@
 				{/if}
 				<ul class="mt-3 space-y-3">
 					{#each library.items as item (item.id)}
-						<li
-							draggable="true"
-							ondragstart={(event) => startDrag(event, item)}
-							class="cursor-grab rounded-xl border border-border p-3 active:cursor-grabbing"
-						>
-							<p class="truncate text-sm font-medium">{item.original_filename}</p>
-							<p class="mt-1 text-sm text-on-surface-muted">
-								{kindLabel(item.mime_type)} · {formatFileSize(item.size_bytes)}
-							</p>
-						</li>
+						<CaptureInboxItem {item} accessToken={auth.session?.access_token ?? null} />
 					{/each}
 				</ul>
 				{#if library.hasMore}

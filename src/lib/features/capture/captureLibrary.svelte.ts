@@ -7,6 +7,19 @@ export const captureLibraryPollIntervalMs = 5_000;
 
 const listProblem = 'Não foi possível atualizar os arquivos recebidos.';
 
+function sameCapture(left: InboxCapture, right: InboxCapture) {
+	return (
+		left.id === right.id &&
+		left.capture_session_id === right.capture_session_id &&
+		left.original_filename === right.original_filename &&
+		left.mime_type === right.mime_type &&
+		left.size_bytes === right.size_bytes &&
+		left.status === right.status &&
+		left.created_at === right.created_at &&
+		left.expires_at === right.expires_at
+	);
+}
+
 export class CaptureLibrary {
 	items = $state.raw<InboxCapture[]>([]);
 	hasMore = $state(false);
@@ -106,7 +119,18 @@ export class CaptureLibrary {
 				return;
 			}
 			const incoming = result.data.items ?? [];
-			this.items = options.append ? [...this.items, ...incoming] : incoming;
+			const next = options.append
+				? [...this.items, ...incoming]
+				: incoming.map((item, index) => {
+						const current = this.items[index];
+						return current && sameCapture(current, item) ? current : item;
+					});
+			if (
+				next.length !== this.items.length ||
+				next.some((item, index) => item !== this.items[index])
+			) {
+				this.items = next;
+			}
 			this.hasMore = result.data.has_more;
 			if (this.problem === listProblem) this.problem = null;
 		} catch {

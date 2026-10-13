@@ -56,6 +56,11 @@ Funcionalidades que dependem de uma decisão arquitetural futura.
 - **Condições para implementação:** definir entradas, resultados e vínculo com o paciente de cada ferramenta; implementar suas rotas e integrações; habilitar os itens individualmente quando estiverem funcionais. Para assistência ao diagnóstico, definir também revisão pelo profissional e limites de uso. Não ampliar automaticamente a extração laboratorial para esses documentos.
 - **Plano relacionado:** `plans/workspace-clinico.md`.
 
+### P3 — Mostrar a primeira página dos PDFs como miniatura
+
+- **Justificativa:** as listas de capturas e arquivos temporários já mostram miniaturas de JPEG/PNG, mas PDFs usam um ícone genérico. Uma miniatura da primeira página ajudaria a identificar documentos parecidos.
+- **Condições para implementação:** definir uma forma de gerar miniaturas sem baixar e renderizar PDFs inteiros em cada cartão; manter o acesso privado às capturas, limitar custo e tamanho das prévias e tratar PDFs inválidos com o ícone atual.
+
 ### P2 — Isolar a URL da API nos testes de captura
 
 - **Justificativa:** três testes de `captureApi.test.ts` pressupõem `http://localhost:8080`, mas o módulo lê `PUBLIC_API_URL` do ambiente. Uma configuração local diferente faz a validação falhar sem mudança de comportamento.

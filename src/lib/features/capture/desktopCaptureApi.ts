@@ -38,6 +38,13 @@ export function listInboxCaptures(accessToken: string, query: { limit: number; o
 	});
 }
 
+export function getInboxCaptureFile(accessToken: string, captureId: string) {
+	return apiClient.GET('/captures/{captureId}/file', {
+		headers: authorization(accessToken),
+		params: { path: { captureId } }
+	});
+}
+
 export function capturePairingUrl(origin: string, pairingCode: string) {
 	const url = new URL('/capture', origin);
 	url.searchParams.set('code', pairingCode);

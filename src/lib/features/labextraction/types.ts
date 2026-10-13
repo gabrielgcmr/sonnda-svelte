@@ -9,4 +9,7 @@ export type ExtractedLabReport = components['schemas']['ExtractedLabReport'];
 export type LabExtractionCapture = Pick<
 	components['schemas']['CaptureResponse'],
 	'id' | 'original_filename'
->;
+> &
+	Partial<
+		Pick<components['schemas']['CaptureResponse'], 'mime_type' | 'size_bytes' | 'created_at'>
+	>;

@@ -40,7 +40,7 @@
 	);
 </script>
 
-<div class="min-w-0 [overflow-wrap:anywhere]" aria-live="polite">
+<div class="min-w-0 wrap-anywhere" aria-live="polite">
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div>
 			<p class="text-sm font-semibold text-brand">Resultado</p>

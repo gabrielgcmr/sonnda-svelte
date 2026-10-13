@@ -9,6 +9,7 @@
 		type CaptureDrag
 	} from '#lib/features/capture/captureDrag.js';
 	import { captureSupportsStandaloneExtraction } from '#lib/features/capture/captureFile.js';
+	import CapturePreviewCard from '#lib/features/capture/CapturePreviewCard.svelte';
 	import ImagingReportResult from '#lib/features/imagingextraction/ImagingReportResult.svelte';
 	import { copyImagingSummary } from '#lib/features/imagingextraction/presentation.js';
 	import { ImagingExtractionState } from '#lib/features/imagingextraction/imagingExtraction.svelte.js';
@@ -20,7 +21,7 @@
 	import Alert from '#lib/ui/Alert.svelte';
 	import Button from '#lib/ui/Button.svelte';
 	import Card from '#lib/ui/Card.svelte';
-	import { formatFileSize } from '#lib/ui/formatFileSize.js';
+	import DocumentPreviewCard from '#lib/ui/DocumentPreviewCard.svelte';
 
 	const unsupportedCapture = 'Use uma captura em PDF, JPEG ou PNG.';
 
@@ -38,10 +39,21 @@
 	);
 	const selectedImagingPages = $derived(
 		imagingExtraction.files.length
-			? imagingExtraction.files.map((file) => ({ name: file.name, size: file.size }))
+			? imagingExtraction.files.map((file) => ({
+					name: file.name,
+					size: file.size,
+					mimeType: file.type,
+					file,
+					captureId: null,
+					createdAt: undefined
+				}))
 			: imagingExtraction.captures.map((capture) => ({
 					name: capture.original_filename,
-					size: capture.size_bytes
+					size: capture.size_bytes,
+					mimeType: capture.mime_type,
+					file: null,
+					captureId: capture.id,
+					createdAt: capture.created_at
 				}))
 	);
 	const fileError = $derived(
@@ -102,7 +114,8 @@
 			id: capture.id,
 			original_filename: capture.name,
 			mime_type: capture.mimeType,
-			size_bytes: capture.sizeBytes
+			size_bytes: capture.sizeBytes,
+			created_at: capture.createdAt
 		};
 		if (mode === 'laboratory') labExtraction.selectCapture(selected);
 		else imagingExtraction.selectCapture(selected);
@@ -349,46 +362,76 @@
 				{#if mode === 'imaging' && selectedImagingPages.length}
 					<ol class="mt-4 space-y-2" aria-label="Páginas selecionadas em ordem">
 						{#each selectedImagingPages as page, index (`${page.name}-${index}`)}
-							<li
-								class="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-surface-muted p-3 text-sm"
-							>
-								<span class="min-w-0 flex-1 truncate"
-									>{index + 1}. {page.name} · {formatFileSize(page.size)}</span
-								>
-								<button
-									type="button"
-									class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-									aria-label={`Mover ${page.name} para cima`}
-									disabled={index === 0 || extractionStatus === 'processing'}
-									onclick={() => imagingExtraction.movePage(index, -1)}>↑</button
-								>
-								<button
-									type="button"
-									class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-									aria-label={`Mover ${page.name} para baixo`}
-									disabled={index === selectedImagingPages.length - 1 ||
-										extractionStatus === 'processing'}
-									onclick={() => imagingExtraction.movePage(index, 1)}>↓</button
-								>
-								<button
-									type="button"
-									class="rounded px-1 text-danger hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
-									aria-label={`Remover ${page.name}`}
-									disabled={extractionStatus === 'processing'}
-									onclick={() => imagingExtraction.removePage(index)}>Remover</button
-								>
+							<li>
+								{#snippet actions()}
+									<div class="flex shrink-0 gap-1 text-sm">
+										<button
+											type="button"
+											class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+											aria-label={`Mover ${page.name} para cima`}
+											disabled={index === 0 || extractionStatus === 'processing'}
+											onclick={() => imagingExtraction.movePage(index, -1)}>↑</button
+										>
+										<button
+											type="button"
+											class="rounded px-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+											aria-label={`Mover ${page.name} para baixo`}
+											disabled={index === selectedImagingPages.length - 1 ||
+												extractionStatus === 'processing'}
+											onclick={() => imagingExtraction.movePage(index, 1)}>↓</button
+										>
+										<button
+											type="button"
+											class="rounded px-1 text-danger hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand"
+											aria-label={`Remover ${page.name}`}
+											disabled={extractionStatus === 'processing'}
+											onclick={() => imagingExtraction.removePage(index)}>Remover</button
+										>
+									</div>
+								{/snippet}
+								{#if page.captureId}
+									<CapturePreviewCard
+										captureId={page.captureId}
+										name={`${index + 1}. ${page.name}`}
+										mimeType={page.mimeType}
+										sizeBytes={page.size}
+										createdAt={page.createdAt}
+										accessToken={auth.session?.access_token ?? null}
+										{actions}
+									/>
+								{:else}
+									<DocumentPreviewCard
+										name={`${index + 1}. ${page.name}`}
+										mimeType={page.mimeType}
+										sizeBytes={page.size}
+										file={page.file}
+										{actions}
+									/>
+								{/if}
 							</li>
 						{/each}
 					</ol>
 				{:else if selectedFile}
-					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
-						<p class="truncate font-medium">{selectedFile.name}</p>
-						<p class="mt-1 text-on-surface-muted">{formatFileSize(selectedFile.size)}</p>
-					</div>
+					<DocumentPreviewCard
+						name={selectedFile.name}
+						mimeType={selectedFile.type}
+						sizeBytes={selectedFile.size}
+						file={selectedFile}
+						class="mt-4"
+					/>
 				{:else if selectedCapture}
-					<div class="mt-4 rounded-xl border border-border bg-surface-muted p-3 text-sm">
-						<p class="truncate font-medium">{selectedCapture.original_filename}</p>
-						<p class="mt-1 text-on-surface-muted">Recebido pelo celular. Pronto para extrair.</p>
+					<div class="mt-4">
+						<CapturePreviewCard
+							captureId={selectedCapture.id}
+							name={selectedCapture.original_filename}
+							mimeType={selectedCapture.mime_type ?? ''}
+							sizeBytes={selectedCapture.size_bytes}
+							createdAt={selectedCapture.created_at}
+							accessToken={auth.session?.access_token ?? null}
+						/>
+						<p class="mt-1 text-sm text-on-surface-muted">
+							Recebido pelo celular. Pronto para extrair.
+						</p>
 					</div>
 				{/if}
 

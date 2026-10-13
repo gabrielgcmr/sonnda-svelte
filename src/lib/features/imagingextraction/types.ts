@@ -7,4 +7,5 @@ export type ImagingExtractionStatus = 'idle' | 'processing' | 'ready' | 'error';
 export type ImagingExtractionCapture = Pick<
 	components['schemas']['CaptureResponse'],
 	'id' | 'original_filename' | 'mime_type' | 'size_bytes'
->;
+> &
+	Partial<Pick<components['schemas']['CaptureResponse'], 'created_at'>>;
